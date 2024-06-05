@@ -90,14 +90,13 @@ fn main() {
     }
 }
 
+const FLAT_BET: f32 = 1f32;
 fn manual_play() {
-    let starting_bet = 1f32;
     let mut bankroll = 1000f32;
-    let flat_bet = 1f32;
     loop {
         let starting_balance = bankroll;
-        bankroll -= flat_bet;
-        let mut game = init_state(starting_bet, RULES);
+        bankroll -= FLAT_BET;
+        let mut game = init_state(FLAT_BET, RULES);
 
         while !matches!(game.state, blackjack::GameState::GameOver) {
             clear_screen();
@@ -114,7 +113,7 @@ fn manual_play() {
                         player_action,
                         PlayerAction::DoubleDown | PlayerAction::Split
                     ) {
-                        bankroll -= flat_bet;
+                        bankroll -= FLAT_BET;
                     }
                     game.next_state(Some(player_action))
                 }
@@ -179,62 +178,12 @@ fn manual_play() {
 fn monte_carlo_simulation() {
     let flat_bet = 1f32;
     let initial_bankroll = 10000f32;
-    let mut bankroll = initial_bankroll;
-    let mut net_earnings_distribution: HashMap<i32, u32> = HashMap::new();
 
     let start_time = SystemTime::now();
 
-    let print_stats = |i: &u32, net_earnings_distribution: &HashMap<i32, u32>, bankroll: &f32| {
-        println!("Starting bankroll: ${}", initial_bankroll);
-        let net = *bankroll - initial_bankroll;
-        {
-            print!("Bankroll: ${}", bankroll);
-            println!(
-                " {}",
-                if net > 0f32 {
-                    green(format!("+${}", net).as_str())
-                } else if net < 0f32 {
-                    red(format!("-${}", net.abs()).as_str())
-                } else {
-                    "".to_string()
-                }
-            );
-        };
-        println!("Loss/earnings distribution:");
-        let mut vec = net_earnings_distribution.iter().collect::<Vec<_>>();
-        vec.sort_by(|a, b| a.0.cmp(&b.0));
-        for (cents, count) in vec {
-            let percent = (*count as f32 / *i as f32) * 100f32;
-            let count = (*count).to_formatted_string(&Locale::en);
-            let dollars = (*cents as f32 / 100f32).abs();
-            if *cents > 0 {
-                println!(
-                    "{}: {:.2}% ({})",
-                    green(format!("+${:.2}", dollars).as_str()),
-                    percent,
-                    count
-                )
-            } else if *cents < 0 {
-                println!(
-                    "{}: {:.2}% ({})",
-                    red(format!("-${:.2}", dollars).as_str()),
-                    percent,
-                    count
-                )
-            } else if *cents == 0 {
-                println!("$0: {:.2}% ({})", percent, count)
-            }
-        }
-        let house_edge_percent = ((initial_bankroll - *bankroll) / *i as f32 / flat_bet) * 100f32;
-        println!("House edge: {:.2}%", house_edge_percent);
-        let duration = SystemTime::now().duration_since(start_time).unwrap();
-        println!(
-            "Simulated {} rounds in {:.2} seconds",
-            (*i).to_formatted_string(&Locale::en).as_str(),
-            duration.as_millis() as f32 / 1000f32
-        );
-    };
 
+    let mut bankroll = initial_bankroll;
+    let mut net_earnings_distribution: HashMap<i32, u32> = HashMap::new();
     let mut i = 1;
     loop {
         let preround_bankroll = bankroll;
@@ -273,10 +222,61 @@ fn monte_carlo_simulation() {
             net_cents,
             net_earnings_distribution.get(&net_cents).unwrap_or(&zero) + 1,
         );
-        if i % 10000 == 0 {
+        if i % 2000 == 0 {
             clear_screen();
-            print_stats(&i, &net_earnings_distribution, &bankroll);
+            print_stats(&start_time, &i, &net_earnings_distribution, &initial_bankroll, &bankroll);
         }
         i += 1;
     }
 }
+
+fn print_stats (start_time: &SystemTime, i: &u32, net_earnings_distribution: &HashMap<i32, u32>, initial_bankroll: &f32, bankroll: &f32) {
+    println!("Starting bankroll: ${}", *initial_bankroll);
+    let net = *bankroll - *initial_bankroll;
+    {
+        print!("Bankroll: ${}", bankroll);
+        println!(
+            " {}",
+            if net > 0f32 {
+                green(format!("+${}", net).as_str())
+            } else if net < 0f32 {
+                red(format!("-${}", net.abs()).as_str())
+            } else {
+                "".to_string()
+            }
+        );
+    };
+    println!("Loss/earnings distribution:");
+    let mut vec = net_earnings_distribution.iter().collect::<Vec<_>>();
+    vec.sort_by(|a, b| a.0.cmp(&b.0));
+    for (cents, count) in vec {
+        let percent = (*count as f32 / *i as f32) * 100f32;
+        let count = (*count).to_formatted_string(&Locale::en);
+        let dollars = (*cents as f32 / 100f32).abs();
+        if *cents > 0 {
+            println!(
+                "{}: {:.2}% ({})",
+                green(format!("+${:.2}", dollars).as_str()),
+                percent,
+                count
+            )
+        } else if *cents < 0 {
+            println!(
+                "{}: {:.2}% ({})",
+                red(format!("-${:.2}", dollars).as_str()),
+                percent,
+                count
+            )
+        } else if *cents == 0 {
+            println!("$0: {:.2}% ({})", percent, count)
+        }
+    }
+    let house_edge_percent = ((*initial_bankroll - *bankroll) / *i as f32 / FLAT_BET) * 100f32;
+    println!("House edge: {:.2}%", house_edge_percent);
+    let duration = SystemTime::now().duration_since(*start_time).unwrap();
+    println!(
+        "Simulated {} rounds in {:.2} seconds",
+        (*i).to_formatted_string(&Locale::en).as_str(),
+        duration.as_millis() as f32 / 1000f32
+    );
+};
