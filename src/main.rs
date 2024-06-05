@@ -1,16 +1,19 @@
 mod blackjack;
 mod constants;
 mod terminal;
+use num_format::{Locale, ToFormattedString};
+use rand::prelude::SliceRandom;
 use std::{
+    collections::HashMap,
     io::{self, Write},
     thread,
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use blackjack::{
     init_state,
     ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
-    HandOutcome, LossReason, PlayerAction, WinReason,
+    GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
 use terminal::{clear_screen, green, red, yellow};
 
@@ -19,14 +22,14 @@ enum TitleScreenInput {
     MonteCarloSimulation,
 }
 fn get_title_screen_input() -> TitleScreenInput {
-    print!("Please enter a number between 1 and 3: ");
+    print!("Please enter a number between 1 and 2: ");
     let _ = io::stdout().flush(); // Make sure the prompt is immediately displayed
 
     let mut input = String::new();
     let _ = io::stdin().read_line(&mut input);
     match input.trim().parse::<i32>() {
         Ok(1) => TitleScreenInput::PlayGame,
-        Ok(3) => TitleScreenInput::MonteCarloSimulation,
+        Ok(2) => TitleScreenInput::MonteCarloSimulation,
         _ => {
             println!("Invalid input. Please try again.");
             get_title_screen_input()
@@ -173,4 +176,107 @@ fn manual_play() {
         let _ = io::stdin().read_line(&mut input);
     }
 }
-fn monte_carlo_simulation() {}
+fn monte_carlo_simulation() {
+    let flat_bet = 1f32;
+    let initial_bankroll = 10000f32;
+    let mut bankroll = initial_bankroll;
+    let mut net_earnings_distribution: HashMap<i32, u32> = HashMap::new();
+
+    let start_time = SystemTime::now();
+
+    let print_stats = |i: &u32, net_earnings_distribution: &HashMap<i32, u32>, bankroll: &f32| {
+        println!("Starting bankroll: ${}", initial_bankroll);
+        let net = *bankroll - initial_bankroll;
+        {
+            print!("Bankroll: ${}", bankroll);
+            println!(
+                " {}",
+                if net > 0f32 {
+                    green(format!("+${}", net).as_str())
+                } else if net < 0f32 {
+                    red(format!("-${}", net.abs()).as_str())
+                } else {
+                    "".to_string()
+                }
+            );
+        };
+        println!("Loss/earnings distribution:");
+        let mut vec = net_earnings_distribution.iter().collect::<Vec<_>>();
+        vec.sort_by(|a, b| a.0.cmp(&b.0));
+        for (cents, count) in vec {
+            let percent = (*count as f32 / *i as f32) * 100f32;
+            let count = (*count).to_formatted_string(&Locale::en);
+            let dollars = (*cents as f32 / 100f32).abs();
+            if *cents > 0 {
+                println!(
+                    "{}: {:.2}% ({})",
+                    green(format!("+${:.2}", dollars).as_str()),
+                    percent,
+                    count
+                )
+            } else if *cents < 0 {
+                println!(
+                    "{}: {:.2}% ({})",
+                    red(format!("-${:.2}", dollars).as_str()),
+                    percent,
+                    count
+                )
+            } else if *cents == 0 {
+                println!("$0: {:.2}% ({})", percent, count)
+            }
+        }
+        let house_edge_percent = ((initial_bankroll - *bankroll) / *i as f32 / flat_bet) * 100f32;
+        println!("House edge: {:.2}%", house_edge_percent);
+        let duration = SystemTime::now().duration_since(start_time).unwrap();
+        println!(
+            "Simulated {} rounds in {:.2} seconds",
+            (*i).to_formatted_string(&Locale::en).as_str(),
+            duration.as_millis() as f32 / 1000f32
+        );
+    };
+
+    let mut i = 1;
+    loop {
+        let preround_bankroll = bankroll;
+        bankroll -= flat_bet;
+        let mut game = init_state(flat_bet, RULES);
+
+        while !matches!(game.state, GameState::GameOver) {
+            if matches!(game.state, GameState::PlayerTurn) {
+                let allowed_actions = game.allowed_actions();
+                let mut rng = rand::thread_rng();
+                let random_action = allowed_actions.choose(&mut rng).unwrap();
+                if matches!(
+                    random_action,
+                    PlayerAction::DoubleDown | PlayerAction::Split
+                ) {
+                    bankroll -= flat_bet;
+                }
+                game = game.next_state(Some(*random_action))
+            } else {
+                game = game.next_state(None)
+            }
+        }
+        let player_hand_outcomes = game.player_hand_outcomes();
+        for (bet, outcome) in game.bets.iter().zip(player_hand_outcomes) {
+            bankroll += match outcome {
+                HandOutcome::Win(WinReason::Blackjack) => *bet + game.rules.blackjack_payout * *bet,
+                HandOutcome::Win(_) => *bet + *bet,
+                HandOutcome::Push => *bet,
+                _ => 0f32,
+            }
+        }
+        let net = bankroll - preround_bankroll;
+        let net_cents = (net * 100f32).round() as i32;
+        let zero: u32 = 0;
+        net_earnings_distribution.insert(
+            net_cents,
+            net_earnings_distribution.get(&net_cents).unwrap_or(&zero) + 1,
+        );
+        if i % 10000 == 0 {
+            clear_screen();
+            print_stats(&i, &net_earnings_distribution, &bankroll);
+        }
+        i += 1;
+    }
+}
