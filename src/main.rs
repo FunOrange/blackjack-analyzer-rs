@@ -20,17 +20,19 @@ use terminal::{clear_screen, green, red, yellow};
 
 enum TitleScreenInput {
     PlayGame,
+    AutoPlay,
     MonteCarloSimulation,
 }
 fn get_title_screen_input() -> TitleScreenInput {
-    print!("Please enter a number between 1 and 2: ");
+    print!("Please enter a number between 1 and 3: ");
     let _ = io::stdout().flush(); // Make sure the prompt is immediately displayed
 
     let mut input = String::new();
     let _ = io::stdin().read_line(&mut input);
     match input.trim().parse::<i32>() {
         Ok(1) => TitleScreenInput::PlayGame,
-        Ok(2) => TitleScreenInput::MonteCarloSimulation,
+        Ok(2) => TitleScreenInput::AutoPlay,
+        Ok(3) => TitleScreenInput::MonteCarloSimulation,
         _ => {
             println!("Invalid input. Please try again.");
             get_title_screen_input()
@@ -84,15 +86,17 @@ const RULES: BlackjackRuleset = BlackjackRuleset {
 fn main() {
     println!("Welcome to Blackjack!");
     println!("1: Play game");
-    println!("2: Monte Carlo Simulation");
+    println!("2: Auto play");
+    println!("3: Monte Carlo Simulation");
     match get_title_screen_input() {
-        TitleScreenInput::PlayGame => manual_play(),
+        TitleScreenInput::PlayGame => play(false),
+        TitleScreenInput::AutoPlay => play(true),
         TitleScreenInput::MonteCarloSimulation => monte_carlo_simulation(),
     }
 }
 
 const FLAT_BET: f32 = 1f32;
-fn manual_play() {
+fn play(auto_play: bool) {
     let mut bankroll = 1000f32;
     loop {
         let starting_balance = bankroll;
@@ -102,21 +106,30 @@ fn manual_play() {
         while !matches!(game.state, blackjack::GameState::GameOver) {
             clear_screen();
             game.print_game_state();
-            game = match game.state {
+            match game.state {
                 blackjack::GameState::Dealing | blackjack::GameState::DealerTurn => {
                     thread::sleep(Duration::from_millis(150));
-                    game.next_state(None)
+                    game.next_state(None);
                 }
                 blackjack::GameState::PlayerTurn => {
                     let allowed_actions = game.allowed_actions();
-                    let player_action = get_player_input(&allowed_actions);
+                    let player_action = match auto_play {
+                        true => match allowed_actions.contains(&PlayerAction::Split) {
+                            true => PlayerAction::Split,
+                            false => {
+                                let mut rng = rand::thread_rng();
+                                *allowed_actions.choose(&mut rng).unwrap()
+                            }
+                        },
+                        false => get_player_input(&allowed_actions),
+                    };
                     if matches!(
                         player_action,
                         PlayerAction::DoubleDown | PlayerAction::Split
                     ) {
                         bankroll -= FLAT_BET;
                     }
-                    game.next_state(Some(player_action))
+                    game.next_state(Some(player_action));
                 }
                 blackjack::GameState::GameOver => panic!("Unreachable code."),
             }
@@ -210,9 +223,9 @@ fn monte_carlo_simulation() {
                             ) {
                                 bankroll -= FLAT_BET;
                             }
-                            game = game.next_state(Some(*random_action))
+                            game.next_state(Some(*random_action))
                         } else {
-                            game = game.next_state(None)
+                            game.next_state(None)
                         }
                     }
                     let player_hand_outcomes = game.player_hand_outcomes();

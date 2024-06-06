@@ -76,7 +76,7 @@ impl ToString for Card {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum GameState {
     Dealing,
     PlayerTurn,
@@ -161,35 +161,26 @@ pub enum HandValue {
 }
 use HandValue::*;
 
-pub fn format_hand_value(value: &HandValue) -> String {
-    match value {
-        Hard(v) => v.to_string(),
-        Soft(11) => "Ace".to_string(),
-        Soft(v) => format!("{}/{}", v - 10, v),
-        Blackjack => "Blackjack".to_string(),
-    }
-}
-
 pub fn init_state(starting_bet: f32, rules: BlackjackRuleset) -> BlackjackState {
-    let mut shoe: Vec<Card> = UNSHUFFLED_DECK
-        .iter()
-        .cycle()
-        .take(UNSHUFFLED_DECK.len() * 8)
-        .cloned()
-        .collect();
+    let mut shoe: Vec<Card> = Vec::with_capacity(UNSHUFFLED_DECK.len() * 8);
+    for _ in 0..8 {
+        shoe.extend(UNSHUFFLED_DECK.iter().cloned());
+    }
     shoe.shuffle(&mut thread_rng());
 
-    #[rustfmt::skip]
-    let mut debug_shoe_starting_pairs = vec![
-        Card { suit: Suit::Hearts, face_value: FaceValue::Two, face_down: false },
-        Card { suit: Suit::Hearts, face_value: FaceValue::Two, face_down: false },
-        Card { suit: Suit::Hearts, face_value: FaceValue::Two, face_down: false },
-        Card { suit: Suit::Hearts, face_value: FaceValue::Two, face_down: false },
-    ];
-    debug_shoe_starting_pairs.extend(shoe);
+    // #[rustfmt::skip]
+    // let debug_start = vec![
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Six, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::King, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Four, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false }, // first card
+    // ];
+    // shoe.extend(debug_start);
     BlackjackState {
         starting_bet,
-        shoe: debug_shoe_starting_pairs,
+        shoe,
         dealer_hand: Vec::new(),
         player_hands: vec![Vec::new()],
         hand_index: 0,
@@ -221,21 +212,10 @@ pub enum HandOutcome {
 }
 
 impl BlackjackState {
-    fn hand_value_base(
-        &self,
-        _hand: &Vec<Card>,
-        aces_split: bool,
-        include_face_down: bool,
-    ) -> HandValue {
+    fn hand_value_base(&self, _hand: &Vec<Card>, aces_split: bool) -> HandValue {
         let hand = _hand
             .iter()
-            .filter(|c| {
-                if include_face_down {
-                    true
-                } else {
-                    !c.face_down
-                }
-            })
+            .filter(|c| !c.face_down)
             .collect::<Vec<&Card>>();
         if hand.len() == 2 {
             let card1 = &hand[0].face_value;
@@ -270,11 +250,11 @@ impl BlackjackState {
     }
 
     fn player_hand_value(&self, hand: &Vec<Card>, aces_split: bool) -> HandValue {
-        self.hand_value_base(hand, aces_split, false)
+        self.hand_value_base(hand, aces_split)
     }
 
     fn dealer_hand_value(&self, hand: &Vec<Card>) -> HandValue {
-        self.hand_value_base(hand, false, true)
+        self.hand_value_base(hand, false)
     }
 
     fn aces_split(&self, player_hands: &Vec<Vec<Card>>) -> bool {
@@ -394,7 +374,11 @@ impl BlackjackState {
                     matches!(player_hand_value, Hard(10) | Hard(11))
                 }
             };
-            player_hand.len() == 2 && house_rule_satisfied
+            player_hand.len() == 2
+                && house_rule_satisfied
+                && !player_hand
+                    .iter()
+                    .all(|c| matches!(c.face_value, FaceValue::Ace))
         };
 
         let mut allowed_actions: Vec<PlayerAction> = vec![];
@@ -412,6 +396,7 @@ impl BlackjackState {
     }
 
     pub fn print_game_state(&self) {
+        println!("Shoe: {}", self.shoe.len());
         print!("Dealer hand:");
         for card in &self.dealer_hand {
             print!(
@@ -440,116 +425,73 @@ impl BlackjackState {
         }
     }
 
-    pub fn next_state(&self, player_action: Option<PlayerAction>) -> BlackjackState {
+    pub fn next_state(&mut self, player_action: Option<PlayerAction>) -> () {
         match self.state {
             GameState::Dealing => match (
-                self.dealer_hand.as_slice(),
+                self.dealer_hand.len(),
                 (
-                    &self.player_hands.get(0).unwrap_or(&vec![]).as_slice(),
-                    &self.player_hands.get(1).unwrap_or(&vec![]).as_slice(),
-                    &self.player_hands.get(2).unwrap_or(&vec![]).as_slice(),
-                    &self.player_hands.get(3).unwrap_or(&vec![]).as_slice(),
+                    self.player_hands.get(0).unwrap_or(&vec![]).len(),
+                    self.player_hands.get(1).unwrap_or(&vec![]).len(),
+                    self.player_hands.get(2).unwrap_or(&vec![]).len(),
+                    self.player_hands.get(3).unwrap_or(&vec![]).len(),
                 ),
             ) {
-                ([], ([], [], [], [])) => {
+                (0, (0, 0, 0, 0)) => {
                     // deal first card to player
-                    let (player_card, shoe) = self.shoe.split_first().unwrap();
-                    let mut player_hands = self.player_hands.clone();
-                    player_hands[0].push(player_card.clone());
-                    BlackjackState {
-                        shoe: shoe.to_vec(),
-                        player_hands,
-                        ..self.clone()
-                    }
+                    let player_card = self.shoe.pop().unwrap();
+                    self.player_hands[0].push(player_card);
                 }
-                ([], ([_1], [], [], [])) => {
+                (0, (1, 0, 0, 0)) => {
                     // deal second card to dealer
-                    let (dealer_card, shoe) = self.shoe.split_first().unwrap();
-                    BlackjackState {
-                        shoe: shoe.to_vec(),
-                        dealer_hand: vec![dealer_card.clone()],
-                        ..self.clone()
-                    }
+                    let dealer_card = self.shoe.pop().unwrap();
+                    self.dealer_hand.push(dealer_card);
                 }
-                ([_2], ([_1], [], [], [])) => {
+                (1, (1, 0, 0, 0)) => {
                     // deal third card to player
-                    let (player_card, shoe) = self.shoe.split_first().unwrap();
-                    let mut player_hands = self.player_hands.clone();
-                    player_hands[0].push(player_card.clone());
-                    BlackjackState {
-                        shoe: shoe.to_vec(),
-                        player_hands,
-                        ..self.clone()
-                    }
+                    let player_card = self.shoe.pop().unwrap();
+                    self.player_hands[0].push(player_card);
                 }
-                ([_2], ([_1, _3], [], [], [])) => {
+                (1, (2, 0, 0, 0)) => {
                     // deal fourth card to dealer (face down)
-                    let (dealer_card, shoe) = self.shoe.split_first().unwrap();
-                    let mut dealer_hand = self.dealer_hand.clone();
-                    dealer_hand.push(Card {
+                    let dealer_card = self.shoe.pop().unwrap();
+                    self.dealer_hand.push(Card {
                         face_down: true,
-                        ..dealer_card.clone()
+                        ..dealer_card
                     });
-
-                    let dealer_hand_value = self.dealer_hand_value(&dealer_hand);
+                    let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand);
                     if self.rules.dealer_peeks && matches!(dealer_hand_value, Blackjack) {
-                        BlackjackState {
-                            shoe: shoe.to_vec(),
-                            dealer_hand,
-                            state: GameState::GameOver,
-                            ..self.clone()
-                        }
+                        self.state = GameState::GameOver;
                     } else {
                         match self.player_hand_value(&self.player_hands[0], false) {
-                            Blackjack | Hard(21) => BlackjackState {
-                                shoe: shoe.to_vec(),
-                                dealer_hand,
-                                state: GameState::DealerTurn, // dealer could still have 21/blackjack
-                                ..self.clone()
-                            },
-                            _ => BlackjackState {
-                                shoe: shoe.to_vec(),
-                                dealer_hand,
-                                state: GameState::PlayerTurn,
-                                ..self.clone()
-                            },
+                            Blackjack | Hard(21) => {
+                                self.state = GameState::DealerTurn;
+                            }
+                            _ => {
+                                self.state = GameState::PlayerTurn;
+                            }
                         }
                     }
                 }
-                (_, (_, [_card], _, _)) | (_, (_, _, [_card], _)) | (_, (_, _, _, [_card])) => {
+                (_, (_, 1, _, _)) | (_, (_, _, 1, _)) | (_, (_, _, _, 1)) => {
                     // player just split, deal 1 card
                     // note: bust impossible no need to check
-                    let (player_card, shoe) = self.shoe.split_first().unwrap();
-                    let mut player_hands = self.player_hands.clone();
-                    player_hands[self.hand_index].push(player_card.clone());
-                    let player_hand_finished = self.player_hand_finished(&player_hands);
+                    let player_card = self.shoe.pop().unwrap();
+                    self.player_hands[self.hand_index].push(player_card);
+                    let player_hand_finished = self.player_hand_finished(&self.player_hands);
                     let hand_index = match player_hand_finished {
-                        true => self.next_split_hand_index(&player_hands),
+                        true => self.next_split_hand_index(&self.player_hands),
                         false => self.hand_index,
                     };
                     let switching_to_split_hand = hand_index != self.hand_index;
-                    let state = if player_hands.iter().all(|hand| {
-                        let player_hand_value =
-                            self.player_hand_value(&hand, self.player_split_aces(&player_hands));
-                        let bust = match player_hand_value {
-                            Hard(n) => n > 21,
-                            _ => false,
-                        };
-                        bust
-                    }) {
+                    let state = if switching_to_split_hand {
                         GameState::Dealing
                     } else if player_hand_finished && !switching_to_split_hand {
                         GameState::DealerTurn
                     } else {
                         GameState::PlayerTurn
                     };
-                    BlackjackState {
-                        shoe: shoe.to_vec(),
-                        player_hands,
-                        hand_index,
-                        state,
-                        ..self.clone()
-                    }
+                    self.hand_index = hand_index;
+                    self.state = state;
                 }
                 _ => {
                     panic!("Unreachable code: {:?}", self);
@@ -567,17 +509,16 @@ impl BlackjackState {
                 }
                 match player_action {
                     PlayerAction::Hit => {
-                        let (player_card, shoe) = self.shoe.split_first().unwrap();
-                        let mut player_hands = self.player_hands.clone();
-                        player_hands[self.hand_index].push(player_card.clone());
-                        let player_hand_finished = self.player_hand_finished(&player_hands);
+                        let player_card = self.shoe.pop().unwrap();
+                        self.player_hands[self.hand_index].push(player_card);
+                        let player_hand_finished = self.player_hand_finished(&self.player_hands);
                         let hand_index = if player_hand_finished {
-                            self.next_split_hand_index(&player_hands)
+                            self.next_split_hand_index(&self.player_hands)
                         } else {
                             self.hand_index
                         };
                         let switching_to_split_hand = hand_index != self.hand_index;
-                        let state = if player_hands.iter().all(|hand| bust(hand)) {
+                        let state = if self.player_hands.iter().all(|hand| bust(hand)) {
                             GameState::GameOver
                         } else {
                             match (player_hand_finished, switching_to_split_hand) {
@@ -586,98 +527,68 @@ impl BlackjackState {
                                 (_, true) => GameState::Dealing, // deal card to next split hand
                             }
                         };
-                        BlackjackState {
-                            shoe: shoe.to_vec(),
-                            player_hands,
-                            hand_index,
-                            state,
-                            ..self.clone()
-                        }
+                        self.hand_index = hand_index;
+                        self.state = state;
                     }
                     PlayerAction::Stand => {
                         let hand_index = self.next_split_hand_index(&self.player_hands);
                         let switching_to_split_hand = hand_index != self.hand_index;
                         match switching_to_split_hand {
-                            true => BlackjackState {
-                                hand_index,
-                                state: GameState::Dealing,
-                                ..self.clone()
-                            },
-                            false => BlackjackState {
-                                state: GameState::DealerTurn,
-                                ..self.clone()
-                            },
+                            true => {
+                                self.hand_index = hand_index;
+                                self.state = GameState::Dealing;
+                            }
+                            false => {
+                                self.state = GameState::DealerTurn;
+                            }
                         }
                     }
                     PlayerAction::DoubleDown => {
-                        let mut bets = self.bets.clone();
-                        bets[self.hand_index] *= 2.0;
+                        self.bets[self.hand_index] *= 2.0;
 
-                        let (player_card, shoe) = self.shoe.split_first().unwrap();
-                        let mut player_hands = self.player_hands.clone();
-                        player_hands[self.hand_index].push(player_card.clone());
-                        let hand_index = self.next_split_hand_index(&player_hands);
+                        let player_card = self.shoe.pop().unwrap();
+                        self.player_hands[self.hand_index].push(player_card);
+                        let hand_index = self.next_split_hand_index(&self.player_hands);
                         let switching_to_split_hand = hand_index != self.hand_index;
-                        let state = if player_hands.iter().all(|hand| bust(hand)) {
+                        self.hand_index = hand_index;
+                        self.state = if self.player_hands.iter().all(|hand| bust(hand)) {
                             GameState::GameOver
                         } else if switching_to_split_hand {
                             GameState::PlayerTurn
                         } else {
                             GameState::DealerTurn
                         };
-                        BlackjackState {
-                            bets,
-                            shoe: shoe.to_vec(),
-                            player_hands,
-                            hand_index,
-                            state,
-                            ..self.clone()
-                        }
                     }
                     PlayerAction::Split => {
-                        let mut bets = self.bets.clone();
-                        bets.push(self.starting_bet);
-
-                        let mut player_hands = self.player_hands.clone();
-                        let card2 = player_hands[self.hand_index].pop();
-                        player_hands.push(vec![card2.unwrap()]);
-                        BlackjackState {
-                            bets,
-                            player_hands,
-                            state: GameState::Dealing,
-                            ..self.clone()
-                        }
+                        self.bets.push(self.starting_bet);
+                        let card2 = self.player_hands[self.hand_index].pop().unwrap();
+                        self.player_hands.push(vec![card2]);
+                        self.state = GameState::Dealing;
                     }
                 }
             }
             GameState::DealerTurn => {
-                let dealer_should_stand =
-                    |dealer_hand: &Vec<Card>| match self.dealer_hand_value(&dealer_hand) {
-                        Soft(n) if n >= 17 => self.rules.dealer_stands_on_all_17,
+                fn dealer_should_stand(game: &BlackjackState) -> bool {
+                    match game.dealer_hand_value(&game.dealer_hand) {
+                        Soft(n) if n >= 17 => game.rules.dealer_stands_on_all_17,
                         Hard(n) if n >= 17 => true,
                         Blackjack => true,
                         _ => false,
-                    };
-                if dealer_should_stand(&self.dealer_hand) {
-                    BlackjackState {
-                        state: GameState::GameOver,
-                        ..self.clone()
                     }
+                };
+                if dealer_should_stand(&self) {
+                    self.state = GameState::GameOver;
                 } else {
                     // dealer hits
-                    let (dealer_hand, shoe) = {
+                    {
                         if self.dealer_hand[1].face_down {
-                            let mut dealer_hand = self.dealer_hand.clone();
-                            dealer_hand[1].face_down = false;
-                            (dealer_hand, self.shoe.clone())
+                            self.dealer_hand[1].face_down = false;
                         } else {
-                            let (dealer_card, shoe) = self.shoe.split_first().unwrap();
-                            let mut dealer_hand = self.dealer_hand.clone();
-                            dealer_hand.push(dealer_card.clone());
-                            (dealer_hand, shoe.to_vec())
+                            let dealer_card = self.shoe.pop().unwrap();
+                            self.dealer_hand.push(dealer_card);
                         }
                     };
-                    let state = {
+                    self.state = {
                         let all_blackjacks = self.player_hands.iter().all(|hand| {
                             let aces_were_split = self.player_split_aces(&self.player_hands);
                             let player_hand_value = self.player_hand_value(hand, aces_were_split);
@@ -687,18 +598,12 @@ impl BlackjackState {
                             // dealer has now revealed face down card and is up against all blackjacks
                             // no need to play out the hand
                             GameState::GameOver
-                        } else if dealer_should_stand(&dealer_hand) {
+                        } else if dealer_should_stand(&self) {
                             GameState::GameOver
                         } else {
                             GameState::DealerTurn
                         }
                     };
-                    BlackjackState {
-                        shoe,
-                        dealer_hand,
-                        state,
-                        ..self.clone()
-                    }
                 }
             }
             GameState::GameOver => {
