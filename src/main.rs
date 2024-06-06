@@ -50,6 +50,7 @@ fn get_player_input(allowed_actions: &Vec<PlayerAction>) -> blackjack::PlayerAct
                 PlayerAction::Stand => "Stand",
                 PlayerAction::DoubleDown => "Double Down",
                 PlayerAction::Split => "Split",
+                PlayerAction::Surrender => "Surrender",
             }
         );
     }
@@ -67,12 +68,14 @@ fn get_player_input(allowed_actions: &Vec<PlayerAction>) -> blackjack::PlayerAct
 }
 
 const RULES: BlackjackRuleset = BlackjackRuleset {
+    surrender: true,
+
     dealer_stands_on_all_17: true,
     dealer_peeks: true,
 
-    split_aces: SplitAces::Thrice,
+    split_aces: SplitAces::Twice,
     hit_on_split_ace: false,
-    max_hands_after_split: MaxHandsAfterSplit::Four,
+    max_hands_after_split: MaxHandsAfterSplit::Three,
 
     double_down_on: DoubleDownOn::Any,
     double_after_split: true,
@@ -141,15 +144,15 @@ fn play(auto_play: bool) {
             let mut earnings = 0f32;
             for (bet, outcome) in game.bets.iter().zip(player_hand_outcomes) {
                 earnings += match outcome {
-                    HandOutcome::Win(WinReason::Blackjack) => {
+                    HandOutcome::Won(WinReason::Blackjack) => {
                         println!("{}", green("Blackjack!"));
                         game.rules.blackjack_payout * (*bet * 2f32)
                     }
-                    HandOutcome::Win(WinReason::DealerBust) => {
+                    HandOutcome::Won(WinReason::DealerBust) => {
                         println!("{}", green("Dealer busts!"));
                         *bet * 2f32
                     }
-                    HandOutcome::Win(WinReason::HigherHand) => {
+                    HandOutcome::Won(WinReason::HigherHand) => {
                         println!("{}", green("Player Wins!"));
                         *bet * 2f32
                     }
@@ -157,17 +160,21 @@ fn play(auto_play: bool) {
                         println!("{}", yellow("Push."));
                         *bet
                     }
-                    HandOutcome::Lose(LossReason::Bust) => {
+                    HandOutcome::Lost(LossReason::Bust) => {
                         println!("{}", red("Bust."));
                         0f32
                     }
-                    HandOutcome::Lose(LossReason::LowerHand) => {
+                    HandOutcome::Lost(LossReason::LowerHand) => {
                         println!("{}", red("Dealer wins."));
                         0f32
                     }
-                    HandOutcome::Lose(LossReason::DealerBlackjack) => {
+                    HandOutcome::Lost(LossReason::DealerBlackjack) => {
                         println!("{}", red("Dealer has blackjack."));
                         0f32
+                    }
+                    HandOutcome::Surrendered => {
+                        println!("{}", yellow("Surrendered."));
+                        *bet / 2f32
                     }
                 }
             }
@@ -231,10 +238,10 @@ fn monte_carlo_simulation() {
                     let player_hand_outcomes = game.player_hand_outcomes();
                     for (bet, outcome) in game.bets.iter().zip(player_hand_outcomes) {
                         bankroll += match outcome {
-                            HandOutcome::Win(WinReason::Blackjack) => {
+                            HandOutcome::Won(WinReason::Blackjack) => {
                                 *bet + game.rules.blackjack_payout * *bet
                             }
-                            HandOutcome::Win(_) => *bet + *bet,
+                            HandOutcome::Won(_) => *bet + *bet,
                             HandOutcome::Push => *bet,
                             _ => 0f32,
                         }

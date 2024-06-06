@@ -22,6 +22,8 @@ pub enum DoubleDownOn {
 
 #[derive(Debug, Clone)]
 pub struct BlackjackRuleset {
+    pub surrender: bool,
+
     // dealer
     pub dealer_stands_on_all_17: bool,
     pub dealer_peeks: bool,

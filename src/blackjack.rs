@@ -1,4 +1,6 @@
 pub mod ruleset;
+use crate::constants::basic_strategy_tables;
+use crate::constants::basic_strategy_tables::Strategy;
 use crate::constants::UNSHUFFLED_DECK;
 use crate::terminal::yellow;
 use core::panic;
@@ -115,6 +117,7 @@ pub enum PlayerAction {
     Stand,
     DoubleDown,
     Split,
+    Surrender,
 }
 impl PartialEq for PlayerAction {
     fn eq(&self, other: &Self) -> bool {
@@ -122,7 +125,8 @@ impl PartialEq for PlayerAction {
             (PlayerAction::Hit, PlayerAction::Hit)
             | (PlayerAction::Stand, PlayerAction::Stand)
             | (PlayerAction::DoubleDown, PlayerAction::DoubleDown)
-            | (PlayerAction::Split, PlayerAction::Split) => true,
+            | (PlayerAction::Split, PlayerAction::Split)
+            | (PlayerAction::Surrender, PlayerAction::Surrender) => true,
             _ => false,
         }
     }
@@ -209,9 +213,10 @@ pub enum LossReason {
     DealerBlackjack, // technically redundant but useful for displaying to user
 }
 pub enum HandOutcome {
-    Win(WinReason),
-    Lose(LossReason),
+    Won(WinReason),
+    Lost(LossReason),
     Push,
+    Surrendered,
 }
 
 impl BlackjackState {
@@ -223,17 +228,17 @@ impl BlackjackState {
         if hand.len() == 2 {
             let card1 = &hand[0].face_value;
             let card2 = &hand[1].face_value;
-            let is_blackjack = matches!(
-                (card1, card2, &self.rules.ace_and_ten_counts_as_blackjack),
-                (FaceValue::Ace, FaceValue::Ten, true)
-                    | (FaceValue::Ace, FaceValue::Jack, _)
-                    | (FaceValue::Ace, FaceValue::Queen, _)
-                    | (FaceValue::Ace, FaceValue::King, _)
-                    | (FaceValue::Ten, FaceValue::Ace, true)
-                    | (FaceValue::Jack, FaceValue::Ace, _)
-                    | (FaceValue::Queen, FaceValue::Ace, _)
-                    | (FaceValue::King, FaceValue::Ace, _)
-            );
+            let is_blackjack = match (card1, card2, &self.rules.ace_and_ten_counts_as_blackjack) {
+                (FaceValue::Ace, FaceValue::Ten, true) => true,
+                (FaceValue::Ace, FaceValue::Jack, _) => true,
+                (FaceValue::Ace, FaceValue::Queen, _) => true,
+                (FaceValue::Ace, FaceValue::King, _) => true,
+                (FaceValue::Ten, FaceValue::Ace, true) => true,
+                (FaceValue::Jack, FaceValue::Ace, _) => true,
+                (FaceValue::Queen, FaceValue::Ace, _) => true,
+                (FaceValue::King, FaceValue::Ace, _) => true,
+                _ => false,
+            };
             if is_blackjack {
                 return if aces_split && !&self.rules.split_ace_can_be_blackjack {
                     Hard(21)
@@ -382,6 +387,11 @@ impl BlackjackState {
                     .all(|c| matches!(c.face_value, FaceValue::Ace))
         };
 
+        let can_surrender = self.rules.surrender
+            && self.player_hands.len() == 1
+            && self.player_hands[0].len() == 2
+            && self.dealer_hand[1].face_down;
+
         let mut allowed_actions: Vec<PlayerAction> = Vec::with_capacity(4);
         if can_hit {
             allowed_actions.push(PlayerAction::Hit);
@@ -393,7 +403,56 @@ impl BlackjackState {
         if can_double_down {
             allowed_actions.push(PlayerAction::DoubleDown);
         }
+        if can_surrender {
+            allowed_actions.push(PlayerAction::Surrender);
+        }
         allowed_actions
+    }
+
+    pub fn get_optimal_move(&self) -> PlayerAction {
+        let allowed_actions = self.allowed_actions();
+        let dealer_upcard = &self.dealer_hand[1];
+        let dealer_upcard = card_value(dealer_upcard, true);
+        let player_hand = &self.player_hands[self.hand_index];
+        let can_split = allowed_actions.contains(&PlayerAction::Split);
+        let strategy = if can_split {
+            let card_value = card_value(&player_hand[0], true);
+            &basic_strategy_tables::split[card_value as usize - 2][dealer_upcard as usize - 2]
+        } else {
+            match self.player_hand_value(&self.player_hands[self.hand_index], false) {
+                Hard(n) => &basic_strategy_tables::hard[n as usize - 5][dealer_upcard as usize - 2],
+                Soft(n) => {
+                    &basic_strategy_tables::soft[n as usize - 13][dealer_upcard as usize - 2]
+                }
+                Blackjack => {
+                    panic!("Unreachable code.")
+                }
+            }
+        };
+        match strategy {
+            Strategy::H => match allowed_actions.contains(&PlayerAction::Hit) {
+                true => PlayerAction::Hit,
+                false => PlayerAction::Stand,
+            },
+            Strategy::S => PlayerAction::Stand,
+            Strategy::D => match allowed_actions.contains(&PlayerAction::DoubleDown) {
+                true => PlayerAction::DoubleDown,
+                false => PlayerAction::Hit,
+            },
+            Strategy::P => PlayerAction::Split,
+            Strategy::DS => match allowed_actions.contains(&PlayerAction::DoubleDown) {
+                true => PlayerAction::DoubleDown,
+                false => PlayerAction::Stand,
+            },
+            Strategy::PH => match &self.rules.double_after_split {
+                true => PlayerAction::Split,
+                false => PlayerAction::Hit,
+            },
+            Strategy::RH => match allowed_actions.contains(&PlayerAction::Surrender) {
+                true => PlayerAction::Surrender,
+                false => PlayerAction::Hit,
+            },
+        }
     }
 
     pub fn print_game_state(&self) {
@@ -567,6 +626,9 @@ impl BlackjackState {
                         self.player_hands.push(new_hand);
                         self.state = GameState::Dealing;
                     }
+                    PlayerAction::Surrender => {
+                        self.state = GameState::GameOver;
+                    }
                 }
             }
             GameState::DealerTurn => {
@@ -618,6 +680,14 @@ impl BlackjackState {
         if !matches!(&self.state, GameState::GameOver) {
             panic!("Game is not over; cannot determine outcomes.");
         }
+        // check for surrender
+        if self.player_hands.len() == 1
+            && self.player_hands[0].len() == 2
+            && self.dealer_hand[1].face_down
+        {
+            return vec![HandOutcome::Surrendered];
+        }
+
         self.player_hands
             .iter()
             .map(|hand| {
@@ -626,8 +696,8 @@ impl BlackjackState {
                 let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand);
                 match (player_hand_value, dealer_hand_value) {
                     (Blackjack, Blackjack) => HandOutcome::Push,
-                    (Blackjack, _) => HandOutcome::Win(WinReason::Blackjack),
-                    (_, Blackjack) => HandOutcome::Lose(LossReason::DealerBlackjack),
+                    (Blackjack, _) => HandOutcome::Won(WinReason::Blackjack),
+                    (_, Blackjack) => HandOutcome::Lost(LossReason::DealerBlackjack),
                     _ => {
                         fn to_number(value: &HandValue) -> u8 {
                             match value {
@@ -639,13 +709,13 @@ impl BlackjackState {
                         let player_number = to_number(&player_hand_value);
                         let dealer_number = to_number(&dealer_hand_value);
                         if player_number > 21 {
-                            HandOutcome::Lose(LossReason::Bust)
+                            HandOutcome::Lost(LossReason::Bust)
                         } else if dealer_number > 21 {
-                            HandOutcome::Win(WinReason::DealerBust)
+                            HandOutcome::Won(WinReason::DealerBust)
                         } else if player_number > dealer_number {
-                            HandOutcome::Win(WinReason::HigherHand)
+                            HandOutcome::Won(WinReason::HigherHand)
                         } else if player_number < dealer_number {
-                            HandOutcome::Lose(LossReason::LowerHand)
+                            HandOutcome::Lost(LossReason::LowerHand)
                         } else {
                             HandOutcome::Push
                         }
