@@ -161,9 +161,10 @@ pub enum HandValue {
 }
 use HandValue::*;
 
+const NUM_DECKS: usize = 8; // 8 gives huge increase to code execution speed for some reason
 pub fn init_state(starting_bet: f32, rules: BlackjackRuleset) -> BlackjackState {
-    let mut shoe: Vec<Card> = Vec::with_capacity(UNSHUFFLED_DECK.len() * 8);
-    for _ in 0..8 {
+    let mut shoe: Vec<Card> = Vec::with_capacity(UNSHUFFLED_DECK.len() * NUM_DECKS);
+    for _ in 0..NUM_DECKS {
         shoe.extend(UNSHUFFLED_DECK.iter().cloned());
     }
     shoe.shuffle(&mut thread_rng());
@@ -396,7 +397,6 @@ impl BlackjackState {
     }
 
     pub fn print_game_state(&self) {
-        println!("Shoe: {}", self.shoe.len());
         print!("Dealer hand:");
         for card in &self.dealer_hand {
             print!(

@@ -266,12 +266,12 @@ fn monte_carlo_simulation() {
 
     let start_time = SystemTime::now();
     let mut net_earnings_distribution: HashMap<i32, u32> = HashMap::new();
-    let mut i = 1;
+    let mut iterations = 1;
     let mut last_print_time = SystemTime::now();
     // let mut j = 0;
     loop {
-        let (net_earnings_distribution2, sims) = rx.recv().unwrap();
-        i += sims;
+        let (net_earnings_distribution2, i) = rx.recv().unwrap();
+        iterations += i;
         for (key, value) in net_earnings_distribution2 {
             net_earnings_distribution = {
                 let mut map = net_earnings_distribution.clone();
@@ -279,21 +279,31 @@ fn monte_carlo_simulation() {
                 map
             }
         }
+        const DRAW_INTERVAL: Duration = Duration::from_millis(1000 / 160);
         if SystemTime::now()
             .duration_since(last_print_time)
             .unwrap_or(Duration::from_millis(1))
-            > Duration::from_micros(6250)
+            > DRAW_INTERVAL
         {
             clear_screen();
-            print_stats(&start_time, &i, &net_earnings_distribution);
+            print_stats(&start_time, &iterations, &net_earnings_distribution);
             last_print_time = SystemTime::now();
-            // println!("{}", j);
-            // j += 1;
+            if SystemTime::now()
+                .duration_since(start_time)
+                .unwrap_or(Duration::from_millis(1))
+                > Duration::from_secs(5)
+            {
+                std::process::exit(0);
+            }
         }
     }
 }
 
-fn print_stats(start_time: &SystemTime, i: &u32, net_earnings_distribution: &HashMap<i32, u32>) {
+fn print_stats(
+    start_time: &SystemTime,
+    iterations: &u32,
+    net_earnings_distribution: &HashMap<i32, u32>,
+) {
     // println!("Starting bankroll: ${}", *initial_bankroll);
     // let net = *bankroll - *initial_bankroll;
     // {
@@ -313,7 +323,7 @@ fn print_stats(start_time: &SystemTime, i: &u32, net_earnings_distribution: &Has
     let mut vec = net_earnings_distribution.iter().collect::<Vec<_>>();
     vec.sort_by(|a, b| a.0.cmp(&b.0));
     for (cents, count) in vec {
-        let percent = (*count as f32 / *i as f32) * 100f32;
+        let percent = (*count as f32 / *iterations as f32) * 100f32;
         let count = (*count).to_formatted_string(&Locale::en);
         let dollars = (*cents as f32 / 100f32).abs();
         if *cents > 0 {
@@ -341,7 +351,7 @@ fn print_stats(start_time: &SystemTime, i: &u32, net_earnings_distribution: &Has
         .unwrap_or(Duration::from_millis(1));
     println!(
         "Simulated {} rounds in {:.2} seconds",
-        (*i).to_formatted_string(&Locale::en).as_str(),
+        (*iterations).to_formatted_string(&Locale::en).as_str(),
         duration.as_millis() as f32 / 1000f32
     );
 }
