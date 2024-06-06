@@ -179,11 +179,13 @@ pub fn init_state(starting_bet: f32, rules: BlackjackRuleset) -> BlackjackState 
     //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false }, // first card
     // ];
     // shoe.extend(debug_start);
+    let mut player_hands = Vec::with_capacity(4);
+    player_hands.push(Vec::with_capacity(8));
     BlackjackState {
         starting_bet,
         shoe,
-        dealer_hand: Vec::new(),
-        player_hands: vec![Vec::new()],
+        dealer_hand: Vec::with_capacity(8),
+        player_hands,
         hand_index: 0,
         bets: vec![starting_bet],
         rules,
@@ -242,11 +244,9 @@ impl BlackjackState {
         }
         let has_ace = hand.iter().any(|c| matches!(c.face_value, FaceValue::Ace));
         let low_val: u8 = hand.iter().map(|c| card_value(c, false)).sum();
-        let is_soft = has_ace && low_val <= 11;
-        if is_soft {
-            Soft(low_val + 10)
-        } else {
-            Hard(low_val)
+        match has_ace && low_val <= 11 {
+            true => Soft(low_val + 10),
+            false => Hard(low_val),
         }
     }
 
@@ -382,7 +382,7 @@ impl BlackjackState {
                     .all(|c| matches!(c.face_value, FaceValue::Ace))
         };
 
-        let mut allowed_actions: Vec<PlayerAction> = vec![];
+        let mut allowed_actions: Vec<PlayerAction> = Vec::with_capacity(4);
         if can_hit {
             allowed_actions.push(PlayerAction::Hit);
         }
@@ -562,7 +562,9 @@ impl BlackjackState {
                     PlayerAction::Split => {
                         self.bets.push(self.starting_bet);
                         let card2 = self.player_hands[self.hand_index].pop().unwrap();
-                        self.player_hands.push(vec![card2]);
+                        let mut new_hand = Vec::with_capacity(8);
+                        new_hand.push(card2);
+                        self.player_hands.push(new_hand);
                         self.state = GameState::Dealing;
                     }
                 }
