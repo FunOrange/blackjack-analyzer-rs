@@ -218,7 +218,7 @@ fn play(auto_play: bool) {
 }
 
 const NUM_THREADS: usize = 16;
-const TX_INTERVAL: Duration = Duration::from_millis(800);
+const TX_INTERVAL: Duration = Duration::from_millis(1000 / 160);
 fn monte_carlo_simulation() {
     let (tx, rx) = mpsc::channel();
 
@@ -275,7 +275,7 @@ fn monte_carlo_simulation() {
                     if SystemTime::now()
                         .duration_since(send_time)
                         .unwrap_or(Duration::from_millis(1))
-                        < TX_INTERVAL
+                        > TX_INTERVAL
                     {
                         thread_tx
                             .send((net_earnings_distribution.clone(), i))
