@@ -321,21 +321,24 @@ fn print_stats(
     println!("Loss/earnings distribution:");
     let mut vec = net_earnings_distribution.iter().collect::<Vec<_>>();
     vec.sort_by(|a, b| a.0.cmp(&b.0));
+    let mut earnings: f64 = 0f64;
     for (cents, count) in vec {
-        let percent = (*count as f32 / *iterations as f32) * 100f32;
+        let dollars = (*cents as f64 / 100f64);
+        earnings += dollars as f64 * *count as f64;
+
+        let percent = (*count as f64 / *iterations as f64) * 100f64;
         let count = (*count).to_formatted_string(&Locale::en);
-        let dollars = (*cents as f32 / 100f32).abs();
         if *cents > 0 {
             println!(
                 "{}: {:.2}% ({})",
-                green(format!("+${:.2}", dollars).as_str()),
+                green(format!("+${:.2}", dollars.abs()).as_str()),
                 percent,
                 count
             )
         } else if *cents < 0 {
             println!(
                 "{}: {:.2}% ({})",
-                red(format!("-${:.2}", dollars).as_str()),
+                red(format!("-${:.2}", dollars.abs()).as_str()),
                 percent,
                 count
             )
@@ -343,8 +346,11 @@ fn print_stats(
             println!("$0: {:.2}% ({})", percent, count)
         }
     }
-    // let house_edge_percent = ((*initial_bankroll - *bankroll) / *i as f32 / FLAT_BET) * 100f32;
-    // println!("House edge: {:.2}%", house_edge_percent);
+    let amount_wagered = *iterations as f64 * FLAT_BET as f64;
+    let house_edge = -(earnings / amount_wagered);
+    println!("Amount wagered: ${:.2}", amount_wagered);
+    println!("Net earnings: ${:.2}", earnings);
+    println!("House edge: {:.2}%", house_edge * 100f64);
     let duration = SystemTime::now()
         .duration_since(*start_time)
         .unwrap_or(Duration::from_millis(1));
