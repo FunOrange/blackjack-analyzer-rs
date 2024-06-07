@@ -73,19 +73,19 @@ pub mod basic_strategy_tables {
     pub const hard: [[Strategy; 10]; 13] = [
         /*
         |2  3  4  5  6  7  8  9  10 A */
-        [H, H, H, H, H, H, H, H, H, H], // 5-8
-        [H, D, D, D, D, H, H, H, H, H], // 9
-        [D, D, D, D, D, D, D, D, H, H], // 10
-        [D, D, D, D, D, D, D, D, D, D], // 11
-        [H, H, S, S, S, H, H, H, H, H], // 12
-        [S, S, S, S, S, H, H, H, H, H], // 13
-        [S, S, S, S, S, H, H, H, H, H], // 14
-        [S, S, S, S, S, H, H, H, H, H], // 15
-        [S, S, S, S, S, H, H, H, H, H], // 16
-        [S, S, S, S, S, S, S, S, S, S], // 17
-        [S, S, S, S, S, S, S, S, S, S], // 18
-        [S, S, S, S, S, S, S, S, S, S], // 19
-        [S, S, S, S, S, S, S, S, S, S], // 20
+        [H, H, H, H, H, H, H, H, H, H],    // 5-8
+        [H, D, D, D, D, H, H, H, H, H],    // 9
+        [D, D, D, D, D, D, D, D, H, H],    // 10
+        [D, D, D, D, D, D, D, D, D, D],    // 11
+        [H, H, S, S, S, H, H, H, H, H],    // 12
+        [S, S, S, S, S, H, H, H, H, H],    // 13
+        [S, S, S, S, S, H, H, H, H, H],    // 14
+        [S, S, S, S, S, H, H, H, RH, H],   // 15
+        [S, S, S, S, S, H, H, RH, RH, RH], // 16
+        [S, S, S, S, S, S, S, S, S, S],    // 17
+        [S, S, S, S, S, S, S, S, S, S],    // 18
+        [S, S, S, S, S, S, S, S, S, S],    // 19
+        [S, S, S, S, S, S, S, S, S, S],    // 20
     ];
     pub const soft: [[Strategy; 10]; 9] = [
         /*
