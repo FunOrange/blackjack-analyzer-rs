@@ -235,7 +235,8 @@ fn monte_carlo_simulation() {
                             }
                             HandOutcome::Won(_) => *bet + *bet,
                             HandOutcome::Push => *bet,
-                            _ => 0f32,
+                            HandOutcome::Lost(_) => 0f32,
+                            HandOutcome::Surrendered => *bet / 2f32,
                         }
                     }
                     let net = bankroll;
