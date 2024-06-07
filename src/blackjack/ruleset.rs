@@ -1,11 +1,11 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum SplitAces {
     NotAllowed,
     Once,
     Twice,
     Thrice,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum MaxHandsAfterSplit {
     One,
     Two,
@@ -13,14 +13,14 @@ pub enum MaxHandsAfterSplit {
     Four,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum DoubleDownOn {
     Any,
     NineTenEleven,
     TenEleven,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct BlackjackRuleset {
     pub surrender: bool,
 

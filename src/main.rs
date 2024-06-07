@@ -12,7 +12,7 @@ use std::{
 use blackjack::{
     init_state,
     ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
-    GameState, HandOutcome, LossReason, PlayerAction, WinReason,
+    BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
 use terminal::{clear_screen, green, red, yellow};
 
@@ -84,6 +84,34 @@ const RULES: BlackjackRuleset = BlackjackRuleset {
     split_ace_can_be_blackjack: false,
 };
 
+fn print_game_state(game: &BlackjackState) {
+    print!("Dealer hand:");
+    for card in &game.dealer_hand {
+        print!(
+            " {}",
+            match card.face_down {
+                true => "■".to_string(),
+                false => card.face_value.to_string(),
+            }
+        );
+    }
+    println!();
+    for (i, hand) in game
+        .player_hands
+        .iter()
+        .filter(|&h| !h.is_empty())
+        .enumerate()
+    {
+        print!("Player hand:");
+        for card in hand {
+            print!(" {}", card.face_value.to_string());
+        }
+        if i == game.hand_index {
+            print!("{}", yellow(" ←"));
+        }
+        println!();
+    }
+}
 fn main() {
     println!("Welcome to Blackjack!");
     println!("1: Play game");
@@ -106,7 +134,7 @@ fn play(auto_play: bool) {
 
         while !matches!(game.state, blackjack::GameState::GameOver) {
             clear_screen();
-            game.print_game_state();
+            print_game_state(&game);
             match game.state {
                 blackjack::GameState::Dealing | blackjack::GameState::DealerTurn => {
                     thread::sleep(Duration::from_millis(150));
@@ -130,7 +158,7 @@ fn play(auto_play: bool) {
             }
         }
         clear_screen();
-        game.print_game_state();
+        print_game_state(&game);
         let earnings = {
             let player_hand_outcomes = game.player_hand_outcomes();
             let mut earnings = 0f32;

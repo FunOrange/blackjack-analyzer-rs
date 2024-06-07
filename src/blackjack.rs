@@ -1,9 +1,8 @@
+use crate::blackjack::constants::basic_strategy_tables;
 pub mod constants;
 pub mod ruleset;
-use crate::blackjack::constants::basic_strategy_tables;
 use crate::blackjack::constants::basic_strategy_tables::Strategy;
 use crate::blackjack::constants::UNSHUFFLED_DECK;
-use crate::terminal::yellow;
 use core::panic;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
@@ -335,7 +334,7 @@ impl BlackjackState {
         let player_hand_value =
             self.player_hand_value(player_hand, self.player_split_aces(&self.player_hands));
         if self.player_hand_finished(&self.player_hands) {
-            self.print_game_state();
+            dbg!(self);
             panic!("Player hand is finished; no allowed actions on this hand.");
         }
 
@@ -465,35 +464,6 @@ impl BlackjackState {
         }
     }
 
-    pub fn print_game_state(&self) {
-        print!("Dealer hand:");
-        for card in &self.dealer_hand {
-            print!(
-                " {}",
-                match card.face_down {
-                    true => "■".to_string(),
-                    false => card.face_value.to_string(),
-                }
-            );
-        }
-        println!();
-        for (i, hand) in self
-            .player_hands
-            .iter()
-            .filter(|&h| !h.is_empty())
-            .enumerate()
-        {
-            print!("Player hand:");
-            for card in hand {
-                print!(" {}", card.face_value.to_string());
-            }
-            if i == self.hand_index {
-                print!("{}", yellow(" ←"));
-            }
-            println!();
-        }
-    }
-
     pub fn next_state(&mut self, player_action: Option<PlayerAction>) -> () {
         match self.state {
             GameState::Dealing => match (
@@ -570,7 +540,7 @@ impl BlackjackState {
                 let allowed_actions = self.allowed_actions();
                 let player_action = player_action.unwrap();
                 if !allowed_actions.contains(&player_action) {
-                    self.print_game_state();
+                    dbg!(self);
                     panic!(
                         "Invalid action: {:?}. Valid actions are {:?}",
                         player_action, allowed_actions
