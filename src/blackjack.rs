@@ -179,7 +179,7 @@ pub fn init_state(starting_bet: f32, rules: BlackjackRuleset) -> BlackjackState 
     //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
     //     Card { suit: Suit::Hearts, face_value: FaceValue::King, face_down: false },
     //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Four, face_down: false },
+    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
     //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false }, // first card
     // ];
     // shoe.extend(debug_start);
@@ -220,10 +220,13 @@ pub enum HandOutcome {
 }
 
 impl BlackjackState {
-    fn hand_value_base(&self, _hand: &Vec<Card>, aces_split: bool) -> HandValue {
+    fn hand_value_base(&self, _hand: &Vec<Card>, aces_split: bool, peek: bool) -> HandValue {
         let hand = _hand
             .iter()
-            .filter(|c| !c.face_down)
+            .filter(|c| match peek {
+                true => true,
+                false => !c.face_down,
+            })
             .collect::<Vec<&Card>>();
         if hand.len() == 2 {
             let card1 = &hand[0].face_value;
@@ -256,11 +259,11 @@ impl BlackjackState {
     }
 
     fn player_hand_value(&self, hand: &Vec<Card>, aces_split: bool) -> HandValue {
-        self.hand_value_base(hand, aces_split)
+        self.hand_value_base(hand, aces_split, false)
     }
 
-    fn dealer_hand_value(&self, hand: &Vec<Card>) -> HandValue {
-        self.hand_value_base(hand, false)
+    fn dealer_hand_value(&self, hand: &Vec<Card>, peek: bool) -> HandValue {
+        self.hand_value_base(hand, false, peek)
     }
 
     fn aces_split(&self, player_hands: &Vec<Vec<Card>>) -> bool {
@@ -411,7 +414,7 @@ impl BlackjackState {
 
     pub fn get_optimal_move(&self) -> PlayerAction {
         let allowed_actions = self.allowed_actions();
-        let dealer_upcard = &self.dealer_hand[1];
+        let dealer_upcard = &self.dealer_hand[0];
         let dealer_upcard = card_value(dealer_upcard, true);
         let player_hand = &self.player_hands[self.hand_index];
         let can_split = allowed_actions.contains(&PlayerAction::Split);
@@ -422,7 +425,7 @@ impl BlackjackState {
             match self.player_hand_value(&self.player_hands[self.hand_index], false) {
                 Hard(n) => &basic_strategy_tables::hard[n as usize - 5][dealer_upcard as usize - 2],
                 Soft(n) => {
-                    &basic_strategy_tables::soft[n as usize - 13][dealer_upcard as usize - 2]
+                    &basic_strategy_tables::soft[n as usize - 12][dealer_upcard as usize - 2]
                 }
                 Blackjack => {
                     panic!("Unreachable code.")
@@ -517,9 +520,9 @@ impl BlackjackState {
                         face_down: true,
                         ..dealer_card
                     });
-                    let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand);
+                    let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand, true);
                     if self.rules.dealer_peeks && matches!(dealer_hand_value, Blackjack) {
-                        self.state = GameState::GameOver;
+                        self.state = GameState::DealerTurn;
                     } else {
                         match self.player_hand_value(&self.player_hands[0], false) {
                             Blackjack | Hard(21) => {
@@ -633,7 +636,7 @@ impl BlackjackState {
             }
             GameState::DealerTurn => {
                 fn dealer_should_stand(game: &BlackjackState) -> bool {
-                    match game.dealer_hand_value(&game.dealer_hand) {
+                    match game.dealer_hand_value(&game.dealer_hand, false) {
                         Soft(n) if n >= 17 => game.rules.dealer_stands_on_all_17,
                         Hard(n) if n >= 17 => true,
                         Blackjack => true,
@@ -693,7 +696,7 @@ impl BlackjackState {
             .map(|hand| {
                 let player_hand_value =
                     self.player_hand_value(hand, self.player_split_aces(&self.player_hands));
-                let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand);
+                let dealer_hand_value = self.dealer_hand_value(&self.dealer_hand, false);
                 match (player_hand_value, dealer_hand_value) {
                     (Blackjack, Blackjack) => HandOutcome::Push,
                     (Blackjack, _) => HandOutcome::Won(WinReason::Blackjack),

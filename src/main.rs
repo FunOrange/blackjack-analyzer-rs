@@ -117,13 +117,7 @@ fn play(auto_play: bool) {
                 blackjack::GameState::PlayerTurn => {
                     let allowed_actions = game.allowed_actions();
                     let player_action = match auto_play {
-                        true => match allowed_actions.contains(&PlayerAction::Split) {
-                            true => PlayerAction::Split,
-                            false => {
-                                let mut rng = rand::thread_rng();
-                                *allowed_actions.choose(&mut rng).unwrap()
-                            }
-                        },
+                        true => game.get_optimal_move(),
                         false => get_player_input(&allowed_actions),
                     };
                     if matches!(
