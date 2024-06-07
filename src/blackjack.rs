@@ -423,7 +423,13 @@ impl BlackjackState {
             &basic_strategy_tables::split[card_value as usize - 2][dealer_upcard as usize - 2]
         } else {
             match self.player_hand_value(&self.player_hands[self.hand_index], false) {
-                Hard(n) => &basic_strategy_tables::hard[n as usize - 5][dealer_upcard as usize - 2],
+                Hard(n) => {
+                    if n < 8 {
+                        &basic_strategy_tables::hard[0][dealer_upcard as usize - 2]
+                    } else {
+                        &basic_strategy_tables::hard[n as usize - 8][dealer_upcard as usize - 2]
+                    }
+                }
                 Soft(n) => {
                     &basic_strategy_tables::soft[n as usize - 12][dealer_upcard as usize - 2]
                 }

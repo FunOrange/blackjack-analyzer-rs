@@ -215,16 +215,14 @@ fn monte_carlo_simulation() {
 
                     while !matches!(game.state, GameState::GameOver) {
                         if matches!(game.state, GameState::PlayerTurn) {
-                            let allowed_actions = game.allowed_actions();
-                            let mut rng = rand::thread_rng();
-                            let random_action = allowed_actions.choose(&mut rng).unwrap();
+                            let player_action = game.get_optimal_move();
                             if matches!(
-                                random_action,
+                                player_action,
                                 PlayerAction::DoubleDown | PlayerAction::Split
                             ) {
                                 bankroll -= FLAT_BET;
                             }
-                            game.next_state(Some(*random_action))
+                            game.next_state(Some(player_action))
                         } else {
                             game.next_state(None)
                         }
