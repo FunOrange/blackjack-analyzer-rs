@@ -7,8 +7,9 @@ use core::panic;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use ruleset::BlackjackRuleset;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Suit {
     Hearts,
     Diamonds,
@@ -26,7 +27,7 @@ impl ToString for Suit {
         .to_string()
     }
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum FaceValue {
     Two,
     Three,
@@ -62,7 +63,7 @@ impl ToString for FaceValue {
         .to_string()
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Card {
     pub suit: Suit,
     pub face_value: FaceValue,
@@ -78,14 +79,14 @@ impl ToString for Card {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum GameState {
     Dealing,
     PlayerTurn,
     DealerTurn,
     GameOver,
 }
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct BlackjackState {
     pub starting_bet: f32,
     pub shoe: Vec<Card>,
@@ -111,7 +112,7 @@ impl Clone for BlackjackState {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum PlayerAction {
     Hit,
     Stand,
@@ -157,7 +158,8 @@ pub fn card_value(card: &Card, with_ace_as_11: bool) -> u8 {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Serialize, Deserialize, Copy, Clone)]
+#[serde(tag = "kind", content = "value")]
 pub enum HandValue {
     Hard(u8),
     Soft(u8),
@@ -202,16 +204,20 @@ fn bust(hand: &Vec<Card>) -> bool {
     value > 21
 }
 
+#[derive(Serialize, Deserialize)]
 pub enum WinReason {
     DealerBust,
     HigherHand,
     Blackjack, // technically redundant but useful for displaying to user
 }
+#[derive(Serialize, Deserialize)]
 pub enum LossReason {
     Bust,
     LowerHand,
     DealerBlackjack, // technically redundant but useful for displaying to user
 }
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "reason")]
 pub enum HandOutcome {
     Won(WinReason),
     Lost(LossReason),
