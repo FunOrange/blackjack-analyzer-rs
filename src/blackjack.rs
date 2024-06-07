@@ -531,7 +531,7 @@ impl BlackjackState {
                         self.state = GameState::DealerTurn;
                     } else {
                         match self.player_hand_value(&self.player_hands[0], false) {
-                            Blackjack | Hard(21) => {
+                            Blackjack | Hard(21) | Soft(21) => {
                                 self.state = GameState::DealerTurn;
                             }
                             _ => {
