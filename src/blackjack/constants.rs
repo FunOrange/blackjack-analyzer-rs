@@ -1,4 +1,4 @@
-use super::blackjack::{Card, FaceValue, Suit};
+use crate::blackjack::{Card, FaceValue, Suit};
 
 #[rustfmt::skip]
 pub const UNSHUFFLED_DECK: [Card; 52] = [
@@ -70,7 +70,7 @@ pub mod basic_strategy_tables {
         RH, // surrender if possible, otherwise hit
     }
     use Strategy::*;
-    pub const hard: [[Strategy; 10]; 13] = [
+    pub const HARD: [[Strategy; 10]; 13] = [
         /*
         |2  3  4  5  6  7  8  9  10 A */
         [H, H, H, H, H, H, H, H, H, H],    // 5-8
@@ -87,7 +87,7 @@ pub mod basic_strategy_tables {
         [S, S, S, S, S, S, S, S, S, S],    // 19
         [S, S, S, S, S, S, S, S, S, S],    // 20
     ];
-    pub const soft: [[Strategy; 10]; 9] = [
+    pub const SOFT: [[Strategy; 10]; 9] = [
         /*
         |2  3  4  5  6  7  8  9  10 A */
         [H, H, H, H, H, H, H, H, H, H],     // 12
@@ -100,7 +100,7 @@ pub mod basic_strategy_tables {
         [S, S, S, S, S, S, S, S, S, S],     // 19
         [S, S, S, S, S, S, S, S, S, S],     // 20
     ];
-    pub const split: [[Strategy; 10]; 10] = [
+    pub const SPLIT: [[Strategy; 10]; 10] = [
         /*
         |2  3  4  5  6  7  8  9  10 A */
         [PH, PH, P, P, P, P, H, H, H, H], // 2

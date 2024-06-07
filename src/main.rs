@@ -1,8 +1,6 @@
 mod blackjack;
-mod constants;
 mod terminal;
 use num_format::{Locale, ToFormattedString};
-use rand::prelude::SliceRandom;
 use std::{
     collections::HashMap,
     io::{self, Write},
@@ -324,7 +322,7 @@ fn print_stats(
     vec.sort_by(|a, b| a.0.cmp(&b.0));
     let mut earnings: f64 = 0f64;
     for (cents, count) in vec {
-        let dollars = (*cents as f64 / 100f64);
+        let dollars = *cents as f64 / 100f64;
         earnings += dollars as f64 * *count as f64;
 
         let percent = (*count as f64 / *iterations as f64) * 100f64;

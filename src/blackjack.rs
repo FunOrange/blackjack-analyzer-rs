@@ -1,7 +1,8 @@
+pub mod constants;
 pub mod ruleset;
-use crate::constants::basic_strategy_tables;
-use crate::constants::basic_strategy_tables::Strategy;
-use crate::constants::UNSHUFFLED_DECK;
+use crate::blackjack::constants::basic_strategy_tables;
+use crate::blackjack::constants::basic_strategy_tables::Strategy;
+use crate::blackjack::constants::UNSHUFFLED_DECK;
 use crate::terminal::yellow;
 use core::panic;
 use rand::seq::SliceRandom;
@@ -420,18 +421,18 @@ impl BlackjackState {
         let can_split = allowed_actions.contains(&PlayerAction::Split);
         let strategy = if can_split {
             let card_value = card_value(&player_hand[0], true);
-            &basic_strategy_tables::split[card_value as usize - 2][dealer_upcard as usize - 2]
+            &basic_strategy_tables::SPLIT[card_value as usize - 2][dealer_upcard as usize - 2]
         } else {
             match self.player_hand_value(&self.player_hands[self.hand_index], false) {
                 Hard(n) => {
                     if n < 8 {
-                        &basic_strategy_tables::hard[0][dealer_upcard as usize - 2]
+                        &basic_strategy_tables::HARD[0][dealer_upcard as usize - 2]
                     } else {
-                        &basic_strategy_tables::hard[n as usize - 8][dealer_upcard as usize - 2]
+                        &basic_strategy_tables::HARD[n as usize - 8][dealer_upcard as usize - 2]
                     }
                 }
                 Soft(n) => {
-                    &basic_strategy_tables::soft[n as usize - 12][dealer_upcard as usize - 2]
+                    &basic_strategy_tables::SOFT[n as usize - 12][dealer_upcard as usize - 2]
                 }
                 Blackjack => {
                     panic!("Unreachable code.")
@@ -648,7 +649,7 @@ impl BlackjackState {
                         Blackjack => true,
                         _ => false,
                     }
-                };
+                }
                 if dealer_should_stand(&self) {
                     self.state = GameState::GameOver;
                 } else {
