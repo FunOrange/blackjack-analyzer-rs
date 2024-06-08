@@ -28,7 +28,7 @@ impl ToString for Suit {
     }
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-pub enum FaceValue {
+pub enum Rank {
     Two,
     Three,
     Four,
@@ -43,22 +43,22 @@ pub enum FaceValue {
     King,
     Ace,
 }
-impl ToString for FaceValue {
+impl ToString for Rank {
     fn to_string(&self) -> String {
         match self {
-            FaceValue::Two => "2",
-            FaceValue::Three => "3",
-            FaceValue::Four => "4",
-            FaceValue::Five => "5",
-            FaceValue::Six => "6",
-            FaceValue::Seven => "7",
-            FaceValue::Eight => "8",
-            FaceValue::Nine => "9",
-            FaceValue::Ten => "10",
-            FaceValue::Jack => "J",
-            FaceValue::Queen => "Q",
-            FaceValue::King => "K",
-            FaceValue::Ace => "A",
+            Rank::Two => "2",
+            Rank::Three => "3",
+            Rank::Four => "4",
+            Rank::Five => "5",
+            Rank::Six => "6",
+            Rank::Seven => "7",
+            Rank::Eight => "8",
+            Rank::Nine => "9",
+            Rank::Ten => "10",
+            Rank::Jack => "J",
+            Rank::Queen => "Q",
+            Rank::King => "K",
+            Rank::Ace => "A",
         }
         .to_string()
     }
@@ -66,7 +66,7 @@ impl ToString for FaceValue {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Card {
     pub suit: Suit,
-    pub face_value: FaceValue,
+    pub rank: Rank,
     pub face_down: bool,
 }
 impl ToString for Card {
@@ -74,7 +74,7 @@ impl ToString for Card {
         if self.face_down {
             "?".to_string()
         } else {
-            format!("{}{}", self.face_value.to_string(), self.suit.to_string())
+            format!("{}{}", self.rank.to_string(), self.suit.to_string())
         }
     }
 }
@@ -137,17 +137,17 @@ pub fn card_value(card: &Card, with_ace_as_11: bool) -> u8 {
     if card.face_down {
         0
     } else {
-        match card.face_value {
-            FaceValue::Two => 2,
-            FaceValue::Three => 3,
-            FaceValue::Four => 4,
-            FaceValue::Five => 5,
-            FaceValue::Six => 6,
-            FaceValue::Seven => 7,
-            FaceValue::Eight => 8,
-            FaceValue::Nine => 9,
-            FaceValue::Ten | FaceValue::Jack | FaceValue::Queen | FaceValue::King => 10,
-            FaceValue::Ace => {
+        match card.rank {
+            Rank::Two => 2,
+            Rank::Three => 3,
+            Rank::Four => 4,
+            Rank::Five => 5,
+            Rank::Six => 6,
+            Rank::Seven => 7,
+            Rank::Eight => 8,
+            Rank::Nine => 9,
+            Rank::Ten | Rank::Jack | Rank::Queen | Rank::King => 10,
+            Rank::Ace => {
                 if with_ace_as_11 {
                     11
                 } else {
@@ -177,12 +177,9 @@ pub fn init_state(starting_bet: f32, rules: BlackjackRuleset) -> BlackjackState 
 
     // #[rustfmt::skip]
     // let debug_start = vec![
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Six, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::King, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false },
-    //     Card { suit: Suit::Hearts, face_value: FaceValue::Ace, face_down: false }, // first card
+    //     Card { suit: Suit::Hearts, rank: Rank::Two, face_down: false },
+    //     Card { suit: Suit::Hearts, rank: Rank::Four, face_down: false },
+    //     Card { suit: Suit::Hearts, rank: Rank::Two, face_down: false }, // first card
     // ];
     // shoe.extend(debug_start);
     let mut player_hands = Vec::with_capacity(4);
@@ -217,7 +214,7 @@ pub enum LossReason {
     DealerBlackjack, // technically redundant but useful for displaying to user
 }
 #[derive(Serialize, Deserialize)]
-#[serde(tag = "type", content = "reason")]
+#[serde(tag = "kind", content = "reason")]
 pub enum HandOutcome {
     Won(WinReason),
     Lost(LossReason),
@@ -235,17 +232,17 @@ impl BlackjackState {
             })
             .collect::<Vec<&Card>>();
         if hand.len() == 2 {
-            let card1 = &hand[0].face_value;
-            let card2 = &hand[1].face_value;
+            let card1 = &hand[0].rank;
+            let card2 = &hand[1].rank;
             let is_blackjack = match (card1, card2, &self.rules.ace_and_ten_counts_as_blackjack) {
-                (FaceValue::Ace, FaceValue::Ten, true) => true,
-                (FaceValue::Ace, FaceValue::Jack, _) => true,
-                (FaceValue::Ace, FaceValue::Queen, _) => true,
-                (FaceValue::Ace, FaceValue::King, _) => true,
-                (FaceValue::Ten, FaceValue::Ace, true) => true,
-                (FaceValue::Jack, FaceValue::Ace, _) => true,
-                (FaceValue::Queen, FaceValue::Ace, _) => true,
-                (FaceValue::King, FaceValue::Ace, _) => true,
+                (Rank::Ace, Rank::Ten, true) => true,
+                (Rank::Ace, Rank::Jack, _) => true,
+                (Rank::Ace, Rank::Queen, _) => true,
+                (Rank::Ace, Rank::King, _) => true,
+                (Rank::Ten, Rank::Ace, true) => true,
+                (Rank::Jack, Rank::Ace, _) => true,
+                (Rank::Queen, Rank::Ace, _) => true,
+                (Rank::King, Rank::Ace, _) => true,
                 _ => false,
             };
             if is_blackjack {
@@ -256,7 +253,7 @@ impl BlackjackState {
                 };
             }
         }
-        let has_ace = hand.iter().any(|c| matches!(c.face_value, FaceValue::Ace));
+        let has_ace = hand.iter().any(|c| matches!(c.rank, Rank::Ace));
         let low_val: u8 = hand.iter().map(|c| card_value(c, false)).sum();
         match has_ace && low_val <= 11 {
             true => Soft(low_val + 10),
@@ -276,7 +273,7 @@ impl BlackjackState {
         player_hands.len() > 1
             && player_hands
                 .iter()
-                .all(|hand| matches!(hand[0].face_value, FaceValue::Ace))
+                .all(|hand| matches!(hand[0].rank, Rank::Ace))
     }
 
     fn next_split_hand_index(&self, player_hands: &Vec<Vec<Card>>) -> usize {
@@ -294,7 +291,7 @@ impl BlackjackState {
         player_hands.len() >= 2
             && player_hands
                 .iter()
-                .all(|hand| matches!(hand[0].face_value, FaceValue::Ace))
+                .all(|hand| matches!(hand[0].rank, Rank::Ace))
     }
 
     fn player_hand_finished(&self, player_hands: &Vec<Vec<Card>>) -> bool {
@@ -304,7 +301,7 @@ impl BlackjackState {
         let pair_of_aces = player_hand.len() == 2
             && player_hand
                 .iter()
-                .all(|card| matches!(card.face_value, FaceValue::Ace));
+                .all(|card| matches!(card.rank, Rank::Ace));
         let cannot_resplit_ace = match &self.rules.split_aces {
             ruleset::SplitAces::NotAllowed | ruleset::SplitAces::Once => true, // cannot split ace
             ruleset::SplitAces::Twice => self.player_hands.len() >= 3,
@@ -351,8 +348,7 @@ impl BlackjackState {
         };
 
         let can_split = {
-            let is_pair =
-                player_hand.len() == 2 && player_hand[0].face_value == player_hand[1].face_value;
+            let is_pair = player_hand.len() == 2 && player_hand[0].rank == player_hand[1].rank;
             let can_split_aces = {
                 let num_aces_split = if self.aces_split(&self.player_hands) {
                     self.player_hands.len()
@@ -374,8 +370,8 @@ impl BlackjackState {
             };
             is_pair
                 && house_rule_satisfied
-                && match player_hand[0].face_value {
-                    FaceValue::Ace => can_split_aces,
+                && match player_hand[0].rank {
+                    Rank::Ace => can_split_aces,
                     _ => true,
                 }
         };
@@ -391,9 +387,7 @@ impl BlackjackState {
             };
             player_hand.len() == 2
                 && house_rule_satisfied
-                && !player_hand
-                    .iter()
-                    .all(|c| matches!(c.face_value, FaceValue::Ace))
+                && !player_hand.iter().all(|c| matches!(c.rank, Rank::Ace))
         };
 
         let can_surrender = self.rules.surrender

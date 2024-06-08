@@ -1,6 +1,6 @@
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
-use crate::blackjack::{ruleset::*, BlackjackState, PlayerAction};
+use crate::blackjack::{ruleset::*, BlackjackState, GameState, PlayerAction};
 
 #[wasm_bindgen]
 pub fn create_ruleset(
@@ -62,4 +62,47 @@ pub fn next_state(game: JsValue, action: JsValue) -> JsValue {
 pub fn allowed_actions(game: JsValue) -> JsValue {
     let game: BlackjackState = serde_wasm_bindgen::from_value(game).unwrap();
     serde_wasm_bindgen::to_value(&game.allowed_actions()).unwrap()
+}
+
+const RULES: BlackjackRuleset = BlackjackRuleset {
+    surrender: true,
+
+    dealer_stands_on_all_17: true,
+    dealer_peeks: true,
+
+    split_aces: SplitAces::Twice,
+    hit_on_split_ace: false,
+    max_hands_after_split: MaxHandsAfterSplit::Three,
+
+    double_down_on: DoubleDownOn::Any,
+    double_after_split: true,
+    double_on_split_ace: false,
+
+    ace_and_ten_counts_as_blackjack: true,
+    blackjack_payout: 3.0 / 2.0,
+    split_ace_can_be_blackjack: false,
+};
+
+#[wasm_bindgen]
+pub fn game_outcome(game: JsValue) -> JsValue {
+    let game: BlackjackState = serde_wasm_bindgen::from_value(game).unwrap();
+    let player_hand_outcomes = game.player_hand_outcomes();
+    serde_wasm_bindgen::to_value(&player_hand_outcomes).unwrap()
+}
+
+#[wasm_bindgen]
+pub fn monte_carlo(iterations: u32) -> () {
+    let mut i = 0;
+    while i < iterations {
+        let mut game = crate::blackjack::init_state(1f32, RULES);
+        while !matches!(game.state, GameState::GameOver) {
+            if matches!(game.state, GameState::PlayerTurn) {
+                let player_action = game.get_optimal_move();
+                game.next_state(Some(player_action))
+            } else {
+                game.next_state(None)
+            }
+        }
+        i += 1;
+    }
 }

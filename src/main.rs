@@ -91,7 +91,7 @@ fn print_game_state(game: &BlackjackState) {
             " {}",
             match card.face_down {
                 true => "■".to_string(),
-                false => card.face_value.to_string(),
+                false => card.rank.to_string(),
             }
         );
     }
@@ -104,7 +104,7 @@ fn print_game_state(game: &BlackjackState) {
     {
         print!("Player hand:");
         for card in hand {
-            print!(" {}", card.face_value.to_string());
+            print!(" {}", card.rank.to_string());
         }
         if i == game.hand_index {
             print!("{}", yellow(" ←"));
