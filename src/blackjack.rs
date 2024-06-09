@@ -261,11 +261,11 @@ impl BlackjackState {
         }
     }
 
-    fn player_hand_value(&self, hand: &Vec<Card>, aces_split: bool) -> HandValue {
+    pub fn player_hand_value(&self, hand: &Vec<Card>, aces_split: bool) -> HandValue {
         self.hand_value_base(hand, aces_split, false)
     }
 
-    fn dealer_hand_value(&self, hand: &Vec<Card>, peek: bool) -> HandValue {
+    pub fn dealer_hand_value(&self, hand: &Vec<Card>, peek: bool) -> HandValue {
         self.hand_value_base(hand, false, peek)
     }
 
@@ -287,7 +287,7 @@ impl BlackjackState {
         }
     }
 
-    fn player_split_aces(&self, player_hands: &Vec<Vec<Card>>) -> bool {
+    pub fn player_split_aces(&self, player_hands: &Vec<Vec<Card>>) -> bool {
         player_hands.len() >= 2
             && player_hands
                 .iter()
