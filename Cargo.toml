@@ -20,6 +20,8 @@ js-sys = "0.3.69"
 console_error_panic_hook = { version = "0.1.7", optional = true }
 wasm-bindgen-futures = "0.4.42"
 web-sys = { version = "0.3.69", features = ["DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "Event", "Worker"] }
+rayon = "1.10.0"
+futures-channel = "0.3.30"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.34"

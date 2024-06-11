@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-
+use futures_channel::oneshot;
+use js_sys::{Promise, Uint8ClampedArray, WebAssembly};
 use rand::{prelude::SliceRandom, thread_rng, Rng};
+use rayon::prelude::*;
+use std::collections::HashMap;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
 use crate::{
@@ -125,9 +127,48 @@ pub fn monte_carlo_dealer_only(
     iterations: u32,
     concurrency: usize,
     pool: &pool::WorkerPool,
-) -> JsValue {
-    let results = _monte_carlo_dealer_only(upcard, iterations);
-    serde_wasm_bindgen::to_value(&results).unwrap()
+) -> Result<Promise, JsValue> {
+    let mut results: Vec<HashMap<u8, u32>> = Vec::new();
+    for _ in 0..concurrency {
+        results.push(HashMap::new());
+    }
+
+    // Configure a rayon thread pool which will pull web workers from
+    // `pool`.
+    let thread_pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(concurrency)
+        .spawn_handler(|thread| {
+            pool.run(|| thread.run()).unwrap();
+            Ok(())
+        })
+        .build()
+        .unwrap();
+
+    // And now execute the render! The entire render happens on our worker
+    // threads so we don't lock up the main thread, so we ship off a thread
+    // which actually does the whole rayon business. When our returned
+    // future is resolved we can pull out the final version of the image.
+    let (tx, rx) = oneshot::channel();
+    pool.run(move || {
+        thread_pool.install(|| {
+            results
+                .par_chunks_mut(1)
+                .enumerate()
+                .for_each(|(_, chunk)| {
+                    let results = _monte_carlo_dealer_only(upcard, iterations / concurrency as u32);
+                    chunk[0] = results;
+                });
+        });
+        drop(tx.send(results));
+    })?;
+
+    let done = async move {
+        match rx.await {
+            Ok(results) => Ok(serde_wasm_bindgen::to_value(&results).unwrap()),
+            Err(_) => Err(JsValue::undefined()),
+        }
+    };
+    Ok(wasm_bindgen_futures::future_to_promise(done))
 }
 
 #[cfg(test)]
