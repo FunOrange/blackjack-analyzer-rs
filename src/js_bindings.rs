@@ -77,27 +77,38 @@ pub fn monte_carlo(rules: JsValue, iterations: u32) -> () {
     }
 }
 
-pub fn _monte_carlo_dealer_only(upcard: u8, iterations: u32) -> HashMap<u8, u32> {
-    let mut rng = rand::thread_rng();
-    let mut results: HashMap<u8, u32> = HashMap::new();
-
-    fn hand_value(hand: u8, has_ace: bool) -> u8 {
-        if has_ace && hand + 10 <= 21 {
-            hand + 10
-        } else {
-            hand
-        }
+fn hand_value(hand: u8, has_ace: bool) -> u8 {
+    if has_ace && hand + 10 <= 21 {
+        hand + 10
+    } else {
+        hand
     }
-    const DECK: [u8; 13] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
+}
 
+const DECK: [u8; 13] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
+const RNG_ARRAY_SIZE: usize = 1000;
+
+pub fn _monte_carlo_dealer_only(upcard: u8, iterations: u32) -> HashMap<u8, u32> {
+    let mut rng_array: [u8; RNG_ARRAY_SIZE] = [0; RNG_ARRAY_SIZE];
+    let mut rng = rand::thread_rng();
+
+    let mut results: HashMap<u8, u32> = HashMap::new();
+    let mut i: usize = 0;
     for _ in 0..iterations {
         // initialize hand and shoe
         let mut dealer_hand = upcard;
         let mut has_ace = upcard == 1;
         let mut dealer_hand_value = 0;
         while dealer_hand_value < 17 {
-            let i = rng.gen_range(0..DECK.len());
-            let random_card = DECK[i];
+            let random_byte = {
+                let index = i % RNG_ARRAY_SIZE;
+                if index == 0 {
+                    rng.fill(&mut rng_array[..]);
+                }
+                i += 1;
+                rng_array[index] as usize
+            };
+            let random_card = DECK[random_byte % 13];
             if random_card == 1 {
                 has_ace = true;
             }
