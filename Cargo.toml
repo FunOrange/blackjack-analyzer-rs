@@ -15,11 +15,9 @@ getrandom = { version = "0.2", features = ["js"] }
 num-format = "0.4.0"
 wasm-bindgen = "0.2.84"
 serde = { version = "1.0", features = ["derive"] }
-serde-wasm-bindgen = "0.6.5"
+serde-wasm-bindgen = "0.4"
 js-sys = "0.3.69"
 console_error_panic_hook = { version = "0.1.7", optional = true }
-wasm-bindgen-futures = "0.4.42"
-web-sys = { version = "0.3.69", features = ["DedicatedWorkerGlobalScope", "MessageEvent", "ErrorEvent", "Event", "Worker"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.34"
@@ -27,13 +25,3 @@ wasm-bindgen-test = "0.3.34"
 [profile.release]
 # Tell `rustc` to optimize for small code size.
 opt-level = "s"
-
-[build]
-target = "wasm32-unknown-unknown"
-rustflags = '-Ctarget-feature=+atomics,+bulk-memory,+mutable-globals'
-
-[patch.crates-io]
-# wasm-bindgen = { path = '.' }
-# wasm-bindgen-futures = { path = 'crates/futures' }
-# js-sys = { path = 'crates/js-sys' }
-# web-sys = { path = 'crates/web-sys' }

@@ -120,12 +120,7 @@ pub fn _monte_carlo_dealer_only(upcard: u8, iterations: u32) -> HashMap<u8, u32>
 }
 
 #[wasm_bindgen]
-pub fn monte_carlo_dealer_only(
-    upcard: u8,
-    iterations: u32,
-    concurrency: usize,
-    pool: &pool::WorkerPool,
-) -> JsValue {
+pub fn monte_carlo_dealer_only(upcard: u8, iterations: u32) -> JsValue {
     let results = _monte_carlo_dealer_only(upcard, iterations);
     serde_wasm_bindgen::to_value(&results).unwrap()
 }
