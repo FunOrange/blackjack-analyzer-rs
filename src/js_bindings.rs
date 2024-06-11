@@ -132,7 +132,7 @@ mod tests {
     #[test]
     fn test_monte_carlo_dealer_only() {
         let start_time = std::time::Instant::now();
-        let results = _monte_carlo_dealer_only(6, 500_000);
+        let results = _monte_carlo_dealer_only(6, 100_000);
         let end_time = std::time::Instant::now();
         let duration = end_time - start_time;
         dbg!(results);

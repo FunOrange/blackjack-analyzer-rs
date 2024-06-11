@@ -6,7 +6,7 @@ use blackjack::{
     ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
     BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
-use blackjack_analyzer_rs::{_monte_carlo_dealer_only, monte_carlo_dealer_only};
+use blackjack_analyzer_rs::_monte_carlo_dealer_only;
 use num_format::{Locale, ToFormattedString};
 use std::{
     collections::HashMap,
@@ -21,9 +21,10 @@ enum TitleScreenInput {
     PlayGame,
     AutoPlay,
     MonteCarloSimulation,
+    PerformanceTest,
 }
 fn get_title_screen_input() -> TitleScreenInput {
-    print!("Please enter a number between 1 and 3: ");
+    print!("Please enter a number between 1 and 4: ");
     let _ = io::stdout().flush(); // Make sure the prompt is immediately displayed
 
     let mut input = String::new();
@@ -32,6 +33,7 @@ fn get_title_screen_input() -> TitleScreenInput {
         Ok(1) => TitleScreenInput::PlayGame,
         Ok(2) => TitleScreenInput::AutoPlay,
         Ok(3) => TitleScreenInput::MonteCarloSimulation,
+        Ok(4) => TitleScreenInput::PerformanceTest,
         _ => {
             println!("Invalid input. Please try again.");
             get_title_screen_input()
@@ -119,10 +121,20 @@ fn main() {
     println!("1: Play game");
     println!("2: Auto play");
     println!("3: Monte Carlo Simulation");
+    println!("4: Performance test");
     match get_title_screen_input() {
         TitleScreenInput::PlayGame => play(false),
         TitleScreenInput::AutoPlay => play(true),
         TitleScreenInput::MonteCarloSimulation => monte_carlo_simulation(),
+        TitleScreenInput::PerformanceTest => {
+            let iterations = 2_000_000;
+            let start_time = std::time::Instant::now();
+            let results = _monte_carlo_dealer_only(6, iterations);
+            let end_time = std::time::Instant::now();
+            let duration = end_time - start_time;
+            dbg!(results);
+            println!("Ran {:?} simulations in {:?}", iterations, duration);
+        }
     }
 }
 
