@@ -1,5 +1,11 @@
 mod blackjack;
 mod terminal;
+
+use blackjack::{
+    init_state,
+    ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
+    BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
+};
 use num_format::{Locale, ToFormattedString};
 use std::{
     collections::HashMap,
@@ -7,12 +13,6 @@ use std::{
     sync::mpsc,
     thread,
     time::{Duration, SystemTime},
-};
-
-use blackjack::{
-    init_state,
-    ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
-    BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
 use terminal::{clear_screen, green, red, yellow};
 
@@ -112,6 +112,7 @@ fn print_game_state(game: &BlackjackState) {
         println!();
     }
 }
+
 fn main() {
     println!("Welcome to Blackjack!");
     println!("1: Play game");

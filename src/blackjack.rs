@@ -625,7 +625,7 @@ impl BlackjackState {
                 } else {
                     // dealer hits
                     {
-                        if self.dealer_hand[1].face_down {
+                        if self.dealer_hand.len() >= 2 && self.dealer_hand[1].face_down {
                             self.dealer_hand[1].face_down = false;
                         } else {
                             let dealer_card = self.shoe.pop().unwrap();
