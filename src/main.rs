@@ -6,6 +6,7 @@ use blackjack::{
     ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
     BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
+use blackjack_analyzer_rs::{_monte_carlo_dealer_only, monte_carlo_dealer_only};
 use num_format::{Locale, ToFormattedString};
 use std::{
     collections::HashMap,

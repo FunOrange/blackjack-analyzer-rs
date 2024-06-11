@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
-use rand::{prelude::SliceRandom, thread_rng};
+use rand::{prelude::SliceRandom, thread_rng, Rng};
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
-use crate::blackjack::{
-    card_value, constants::UNSHUFFLED_DECK, ruleset::*, BlackjackState, Card, GameState, HandValue,
-    PlayerAction, Rank,
+use crate::{
+    blackjack::{
+        card_value, constants::UNSHUFFLED_DECK, ruleset::*, BlackjackState, Card, GameState,
+        HandValue, PlayerAction, Rank,
+    },
+    pool,
 };
 
 #[wasm_bindgen]
@@ -80,86 +83,64 @@ pub fn monte_carlo(rules: JsValue, iterations: u32) -> () {
     }
 }
 
-fn hand_value(hand: &Vec<&Card>) -> HandValue {
-    if hand.len() == 2 {
-        let card1 = &hand[0].rank;
-        let card2 = &hand[1].rank;
-        let is_blackjack = match (card1, card2) {
-            (Rank::Ace, Rank::Ten) => true,
-            (Rank::Ace, Rank::Jack) => true,
-            (Rank::Ace, Rank::Queen) => true,
-            (Rank::Ace, Rank::King) => true,
-            (Rank::Ten, Rank::Ace) => true,
-            (Rank::Jack, Rank::Ace) => true,
-            (Rank::Queen, Rank::Ace) => true,
-            (Rank::King, Rank::Ace) => true,
-            _ => false,
-        };
-        if is_blackjack {
-            return HandValue::Blackjack;
+fn hand_value(hand: &Vec<u8>) -> u8 {
+    let mut hand_value = 0;
+    let mut has_ace = false;
+    for card_value in hand.iter() {
+        if *card_value == 1 {
+            has_ace = true;
         }
+        hand_value += card_value;
     }
-    let has_ace = hand.iter().any(|c| matches!(c.rank, Rank::Ace));
-    let low_val: u8 = hand.iter().map(|c| card_value(c, false)).sum();
-    match has_ace && low_val <= 11 {
-        true => HandValue::Soft(low_val + 10),
-        false => HandValue::Hard(low_val),
+    if has_ace && hand_value + 10 <= 21 {
+        hand_value += 10;
     }
+    hand_value
 }
+const DECK: [u8; 13] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
 
-fn _monte_carlo_dealer_only(upcard: Card, iterations: u32) -> HashMap<u8, u32> {
+pub fn _monte_carlo_dealer_only(upcard: u8, iterations: u32) -> HashMap<u8, u32> {
     let mut rng = rand::thread_rng();
     let mut results: HashMap<u8, u32> = HashMap::new();
 
+    let mut dealer_hand: Vec<u8> = Vec::with_capacity(21);
     for _ in 0..iterations {
-        let mut dealer_hand: Vec<&Card> = Vec::with_capacity(4);
-        dealer_hand.push(&upcard);
-        while {
-            let dealer_hand_value = match hand_value(&dealer_hand) {
-                HandValue::Soft(value) => value,
-                HandValue::Hard(value) => value,
-                HandValue::Blackjack => 21,
-            };
-            dealer_hand_value < 17
-        } {
-            let random_card: &Card = &UNSHUFFLED_DECK.choose(&mut rng).unwrap();
+        // initialize hand and shoe
+        dealer_hand.clear();
+        dealer_hand.push(upcard);
+        while hand_value(&dealer_hand) < 17 {
+            let i = rng.gen_range(0..DECK.len());
+            let random_card = DECK[i];
             dealer_hand.push(random_card);
         }
-
         let dealer_hand_value = hand_value(&dealer_hand);
-        let key = match dealer_hand_value {
-            HandValue::Soft(value) => value,
-            HandValue::Hard(value) => value,
-            HandValue::Blackjack => 21,
-        };
-        *results.entry(key).or_insert(0) += 1;
+        *results.entry(dealer_hand_value).or_insert(0) += 1;
     }
     results
 }
 
 #[wasm_bindgen]
-pub fn monte_carlo_dealer_only(upcard: JsValue, iterations: u32) -> JsValue {
-    let upcard: Card = serde_wasm_bindgen::from_value(upcard).unwrap();
+pub fn monte_carlo_dealer_only(
+    upcard: u8,
+    iterations: u32,
+    concurrency: usize,
+    pool: &pool::WorkerPool,
+) -> JsValue {
     let results = _monte_carlo_dealer_only(upcard, iterations);
     serde_wasm_bindgen::to_value(&results).unwrap()
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::blackjack::Card;
-
     use super::_monte_carlo_dealer_only;
     #[test]
     fn test_monte_carlo_dealer_only() {
-        let results = _monte_carlo_dealer_only(
-            Card {
-                rank: crate::blackjack::Rank::Two,
-                suit: crate::blackjack::Suit::Clubs,
-                face_down: false,
-            },
-            1_000_000,
-        );
+        let start_time = std::time::Instant::now();
+        let results = _monte_carlo_dealer_only(6, 500_000);
+        let end_time = std::time::Instant::now();
+        let duration = end_time - start_time;
         dbg!(results);
+        println!("Duration: {:?}", duration);
     }
 }
 
