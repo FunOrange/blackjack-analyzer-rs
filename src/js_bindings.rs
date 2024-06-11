@@ -1,15 +1,9 @@
 use std::collections::HashMap;
 
-use rand::{prelude::SliceRandom, thread_rng, Rng};
+use rand::Rng;
 use wasm_bindgen::{prelude::wasm_bindgen, JsValue};
 
-use crate::{
-    blackjack::{
-        card_value, constants::UNSHUFFLED_DECK, ruleset::*, BlackjackState, Card, GameState,
-        HandValue, PlayerAction, Rank,
-    },
-    pool,
-};
+use crate::blackjack::{ruleset::*, BlackjackState, GameState, PlayerAction};
 
 #[wasm_bindgen]
 pub fn init_state(starting_bet: f32, rules: JsValue) -> JsValue {
