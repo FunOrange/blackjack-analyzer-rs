@@ -77,37 +77,33 @@ pub fn monte_carlo(rules: JsValue, iterations: u32) -> () {
     }
 }
 
-fn hand_value(hand: &Vec<u8>) -> u8 {
-    let mut hand_value = 0;
-    let mut has_ace = false;
-    for card_value in hand.iter() {
-        if *card_value == 1 {
-            has_ace = true;
-        }
-        hand_value += card_value;
-    }
-    if has_ace && hand_value + 10 <= 21 {
-        hand_value += 10;
-    }
-    hand_value
-}
-const DECK: [u8; 13] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
-
 pub fn _monte_carlo_dealer_only(upcard: u8, iterations: u32) -> HashMap<u8, u32> {
     let mut rng = rand::thread_rng();
     let mut results: HashMap<u8, u32> = HashMap::new();
 
-    let mut dealer_hand: Vec<u8> = Vec::with_capacity(21);
+    fn hand_value(hand: u8, has_ace: bool) -> u8 {
+        if has_ace && hand + 10 <= 21 {
+            hand + 10
+        } else {
+            hand
+        }
+    }
+    const DECK: [u8; 13] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10];
+
     for _ in 0..iterations {
         // initialize hand and shoe
-        dealer_hand.clear();
-        dealer_hand.push(upcard);
-        while hand_value(&dealer_hand) < 17 {
+        let mut dealer_hand = upcard;
+        let mut has_ace = upcard == 1;
+        let mut dealer_hand_value = 0;
+        while dealer_hand_value < 17 {
             let i = rng.gen_range(0..DECK.len());
             let random_card = DECK[i];
-            dealer_hand.push(random_card);
+            if random_card == 1 {
+                has_ace = true;
+            }
+            dealer_hand += random_card;
+            dealer_hand_value = hand_value(dealer_hand, has_ace);
         }
-        let dealer_hand_value = hand_value(&dealer_hand);
         *results.entry(dealer_hand_value).or_insert(0) += 1;
     }
     results
