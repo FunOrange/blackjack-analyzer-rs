@@ -593,7 +593,7 @@ impl BlackjackState {
                         self.state = if self.player_hands.iter().all(|hand| bust(hand)) {
                             GameState::GameOver
                         } else if switching_to_split_hand {
-                            GameState::PlayerTurn
+                            GameState::Dealing
                         } else {
                             GameState::DealerTurn
                         };
