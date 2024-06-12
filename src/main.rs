@@ -6,7 +6,7 @@ use blackjack::{
     ruleset::{BlackjackRuleset, DoubleDownOn, MaxHandsAfterSplit, SplitAces},
     BlackjackState, GameState, HandOutcome, LossReason, PlayerAction, WinReason,
 };
-use blackjack_analyzer_rs::_monte_carlo_dealer_only;
+use blackjack_analyzer_rs::monte_carlo::simulate_dealer_stand_outcome;
 use num_format::{Locale, ToFormattedString};
 use std::{
     collections::HashMap,
@@ -129,7 +129,7 @@ fn main() {
         TitleScreenInput::PerformanceTest => {
             let iterations = 2_000_000;
             let start_time = std::time::Instant::now();
-            let results = _monte_carlo_dealer_only(6, iterations);
+            let results = simulate_dealer_stand_outcome(6, iterations);
             let end_time = std::time::Instant::now();
             let duration = end_time - start_time;
             dbg!(results);
